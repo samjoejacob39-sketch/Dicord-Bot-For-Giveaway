@@ -489,8 +489,8 @@ describe("Account Drop System & Premium Accounts", () => {
       const acc = createMockAccount({ isPremium: false });
       const embed = createStandardDropEmbed(acc, "one_time");
 
-      expect(embed.data.color).toBe(0x2b2d31); // Dark theme
-      expect(embed.data.title).toContain("Account Drop");
+      expect(embed.data.color).toBe(0x18181b); // Dark theme
+      expect(embed.data.title).toContain("HIT");
       expect(embed.data.thumbnail?.url).toBe(acc.avatarUrl);
     });
 
@@ -498,9 +498,9 @@ describe("Account Drop System & Premium Accounts", () => {
       const acc = createMockAccount({ isPremium: true });
       const embed = createPremiumDropEmbed(acc, "one_time");
 
-      expect(embed.data.color).toBe(0xd4af37); // Gold accent
-      expect(embed.data.title).toContain("PREMIUM MINECRAFT ACCOUNT DROP");
-      expect(embed.data.image?.url).toContain("mc-heads.net/body/"); // Larger avatar / body render
+      expect(embed.data.color).toBe(0xffd700); // Pure Gold
+      expect(embed.data.title).toContain("GOLDEN HIT");
+      expect(embed.data.image?.url).toContain("mc-heads.net/"); // High-res 3D combo render
     });
 
     it("should generate inventory overview embed", () => {

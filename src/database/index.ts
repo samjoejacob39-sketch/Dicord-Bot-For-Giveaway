@@ -26,6 +26,13 @@ function rowToAccount(row: any): AccountRecord {
     serverStatuses = JSON.parse(row.server_statuses || "[]");
   } catch {}
 
+  let profileMetadata = undefined;
+  try {
+    if (row.metadata) {
+      profileMetadata = JSON.parse(row.metadata);
+    }
+  } catch {}
+
   return {
     id: row.id as string,
     username: row.username as string,
@@ -38,6 +45,7 @@ function rowToAccount(row: any): AccountRecord {
     notes: (row.notes as string) || undefined,
     distributionStatus: (row.distribution_status as AccountDistributionStatus) || "available",
     serverStatuses,
+    profileMetadata,
     addedBy: row.added_by as string,
     createdAt: row.created_at as number,
     updatedAt: row.updated_at as number,
@@ -140,11 +148,16 @@ export class SQLiteService implements DatabaseService {
         notes TEXT,
         distribution_status TEXT NOT NULL DEFAULT 'available',
         server_statuses TEXT NOT NULL DEFAULT '[]',
+        metadata TEXT NOT NULL DEFAULT '{}',
         added_by TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
     `);
+
+    try {
+      this.db.run("ALTER TABLE accounts ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'");
+    } catch {}
 
     this.db.run(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_username ON accounts(username COLLATE NOCASE)
@@ -354,8 +367,8 @@ export class SQLiteService implements DatabaseService {
       `INSERT INTO accounts (
         id, username, email, category, is_premium, account_ref,
         minecraft_uuid, avatar_url, notes, distribution_status,
-        server_statuses, added_by, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        server_statuses, metadata, added_by, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         account.id,
         account.username,
@@ -368,6 +381,7 @@ export class SQLiteService implements DatabaseService {
         account.notes || null,
         account.distributionStatus || "available",
         JSON.stringify(account.serverStatuses || []),
+        JSON.stringify(account.profileMetadata || {}),
         account.addedBy,
         account.createdAt,
         account.updatedAt,
@@ -427,7 +441,7 @@ export class SQLiteService implements DatabaseService {
       `UPDATE accounts SET
         username = ?, email = ?, category = ?, is_premium = ?,
         account_ref = ?, minecraft_uuid = ?, avatar_url = ?, notes = ?,
-        distribution_status = ?, server_statuses = ?, updated_at = ?
+        distribution_status = ?, server_statuses = ?, metadata = ?, updated_at = ?
       WHERE id = ?`,
       [
         merged.username,
@@ -440,6 +454,7 @@ export class SQLiteService implements DatabaseService {
         merged.notes || null,
         merged.distributionStatus,
         JSON.stringify(merged.serverStatuses || []),
+        JSON.stringify(merged.profileMetadata || {}),
         merged.updatedAt,
         id,
       ]

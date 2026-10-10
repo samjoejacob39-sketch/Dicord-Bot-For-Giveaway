@@ -367,9 +367,16 @@ async function handleAddAccount(
     return;
   }
 
-  // Server ban status configuration
-  const hypixelStatus = interaction.options.getString("hypixel_status") || "unknown";
-  const donutsmpStatus = interaction.options.getString("donutsmp_status") || "unknown";
+  await interaction.deferReply({ ephemeral: true });
+
+  // Resolve complete Minecraft profile in the backend automatically
+  const profile = await resolveMinecraftProfile(username);
+  const accountRef = generateAccountRef(isPremium);
+  const now = Date.now();
+
+  // Server ban status: auto-detected from backend if not manually passed
+  const hypixelStatus = interaction.options.getString("hypixel_status") || profile.hypixelStatus;
+  const donutsmpStatus = interaction.options.getString("donutsmp_status") || profile.donutsmpStatus;
   const verificationLevel = interaction.options.getString("verification_level") || "unknown";
 
   const serverStatuses: ServerCheckStatus[] = [
@@ -377,26 +384,19 @@ async function handleAddAccount(
       "hypixel",
       hypixelStatus,
       verificationLevel,
-      hypixelStatus === "unknown" ? "Check failed / unverified" : undefined
+      hypixelStatus === "unknown" || hypixelStatus.includes("failed") ? "Check failed / unverified" : undefined
     ),
     createServerCheckRecord(
       "donutsmp",
       donutsmpStatus,
       verificationLevel,
-      donutsmpStatus === "unknown" ? "Check failed / unverified" : undefined
+      donutsmpStatus === "unknown" || donutsmpStatus.includes("failed") ? "Check failed / unverified" : undefined
     ),
   ];
 
-  await interaction.deferReply({ ephemeral: true });
-
-  // Resolve Minecraft UUID and avatar
-  const profile = await resolveMinecraftProfile(username);
-  const accountRef = generateAccountRef(isPremium);
-  const now = Date.now();
-
   const newAccount: AccountRecord = {
     id: generateId(),
-    username,
+    username: profile.username || username,
     email,
     category,
     isPremium,
@@ -406,6 +406,16 @@ async function handleAddAccount(
     notes: notes || undefined,
     distributionStatus: "available",
     serverStatuses,
+    profileMetadata: {
+      skinType: profile.skinType,
+      capes: notes && notes.toLowerCase().includes("cape") ? notes : profile.capes,
+      nameChangeable: profile.nameChangeable,
+      lastNameChange: profile.lastNameChange,
+      anarchyRecord: profile.anarchyRecord,
+      emailChangeable: profile.emailChangeable,
+      passwordChangeable: profile.passwordChangeable,
+      gameType: profile.gameType,
+    },
     addedBy: interaction.user.id,
     createdAt: now,
     updatedAt: now,
@@ -414,28 +424,14 @@ async function handleAddAccount(
   try {
     db.addAccount(newAccount);
 
-    const embed = new EmbedBuilder()
-      .setColor(isPremium ? 0xd4af37 : 0x57f287)
-      .setTitle(`✅ ${isPremium ? "Premium" : "Standard"} Account Added`)
-      .setDescription(
-        `Successfully registered **${username}** into **${formatCategoryName(category)}**.`
-      )
-      .addFields(
-        { name: "Account Reference", value: `\`${accountRef}\``, inline: true },
-        { name: "Masked Email", value: `\`${maskEmail(email)}\``, inline: true },
-        { name: "UUID", value: `\`${profile.uuid || "Unresolved"}\``, inline: true },
-        { name: "Premium Tier", value: isPremium ? "⭐ True" : "📦 False", inline: true },
-        {
-          name: "Notes",
-          value: notes ? `\`${notes}\`` : "*None*",
-          inline: true,
-        }
-      )
-      .setThumbnail(profile.avatarUrl)
-      .setFooter({ text: "Account credentials stored securely with reference tagging." })
-      .setTimestamp();
+    const embed = isPremium
+      ? createPremiumDropEmbed(newAccount, "preview")
+      : createStandardDropEmbed(newAccount, "preview");
 
-    await interaction.editReply({ embeds: [embed] });
+    await interaction.editReply({
+      content: `✅ **${isPremium ? "Premium Golden" : "Standard"} Account Registered Successfully!** Here is the preview:`,
+      embeds: [embed],
+    });
   } catch (err: any) {
     logger.error("Failed to add account:", err);
     await interaction.editReply({

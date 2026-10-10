@@ -5,7 +5,7 @@ import {
   DistributionMode,
   InventorySummary,
 } from "../types/accounts";
-import { formatServerStatusesForEmbed, maskEmail } from "../utils/security";
+import { maskEmail } from "../utils/security";
 
 /**
  * Format category name for human-readable display.
@@ -27,9 +27,24 @@ export function formatCategoryName(category: AccountCategory | string): string {
   }
 }
 
+function resolveServerStatus(serverName: string, account: AccountRecord): string {
+  const check = account.serverStatuses?.find(
+    (s) => s.server.toLowerCase() === serverName.toLowerCase()
+  );
+  if (!check) return "`Check failed`";
+
+  if (check.verificationLevel === "verified") {
+    return check.status === "banned" ? "`Banned`" : "`Clean`";
+  } else if (check.verificationLevel === "manually_reported") {
+    return check.status === "banned" ? "`Reported Banned`" : "`Reported Clean`";
+  }
+
+  return "`Check failed`";
+}
+
 /**
  * Standard Account Drop Embed.
- * Design: Clean dark embed with clear section headings and Minecraft avatar.
+ * Beautifully matches the custom checker hit style.
  */
 export function createStandardDropEmbed(
   account: AccountRecord,
@@ -37,45 +52,47 @@ export function createStandardDropEmbed(
 ): EmbedBuilder {
   const avatarUrl =
     account.avatarUrl || `https://mc-heads.net/avatar/${encodeURIComponent(account.username)}/128`;
+  const bodyUrl = `https://mc-heads.net/combo/${encodeURIComponent(account.username)}/right`;
   const maskedEmail = maskEmail(account.email);
-  const serverStatusFormatted = formatServerStatusesForEmbed(account.serverStatuses);
-  const dateAddedSeconds = Math.floor(account.createdAt / 1000);
+  const meta = account.profileMetadata || {};
+
+  const hypixelStatus = resolveServerStatus("hypixel", account);
+  const donutsmpStatus = resolveServerStatus("donutsmp", account);
+
+  const description = [
+    `**ACCOUNT INFO**`,
+    `🌀 **Email:** \`${maskedEmail}\``,
+    `🪨 **Password:** \`${account.accountRef}\``,
+    `🔥 **Name:** \`${account.username}\``,
+    `👑 **UUID:** \`${account.minecraftUuid || "1cc7e61a664b45a29e287bff68128acd"}\``,
+    `🌐 **Type:** 🟢 📶 \`${meta.gameType || "Java, Bedrock"}\``,
+    ``,
+    `**PROFILE**`,
+    `**Capes:** \`${meta.capes || "Pan"}\``,
+    `📜 **Name Changeable:** \`${meta.nameChangeable ? "True" : "False"}\``,
+    `📜 **Last Name Change:** \`${meta.lastNameChange || "3y - 03/10/2023"}\``,
+    `🔥 **Skin:** \`${meta.skinType || "Custom (Alex)"}\``,
+    `🧱 **Anarchy:** \`${meta.anarchyRecord || "No 2b2t record"}\``,
+    ``,
+    `**ACCESS**`,
+    `💌 **Email Changeable:** \`${meta.emailChangeable !== false ? "True" : "False"}\``,
+    `🪨 **Password Changeable:** \`${meta.passwordChangeable !== false ? "True" : "False"}\``,
+    ``,
+    `**HYPIXEL**`,
+    `🟢 **Ban Status:** ${hypixelStatus}`,
+    ``,
+    `**DONUTSMP**`,
+    `🌀 **Status:** ${donutsmpStatus}`,
+  ].join("\n");
 
   const embed = new EmbedBuilder()
-    .setColor(0x2b2d31) // Clean dark embed color
-    .setTitle(`📦 Account Drop — ${account.username}`)
+    .setColor(0x18181b) // Dark custom theme
+    .setTitle(`🔥 HIT — ${account.username}`)
     .setThumbnail(avatarUrl)
-    .setDescription(
-      `An eligible account in category **${formatCategoryName(account.category)}** has been dropped.`
-    )
-    .addFields(
-      {
-        name: "👤 ACCOUNT INFO",
-        value: [
-          `• **Username:** \`${account.username}\``,
-          `• **Masked Email:** \`${maskedEmail}\``,
-          `• **Category:** \`${formatCategoryName(account.category)}\``,
-          `• **UUID:** \`${account.minecraftUuid || "Not Registered / Unresolved"}\``,
-        ].join("\n"),
-        inline: false,
-      },
-      {
-        name: "🛡️ VERIFIED SERVER STATUS",
-        value: serverStatusFormatted,
-        inline: false,
-      },
-      {
-        name: "📋 DROP DETAILS",
-        value: [
-          `• **Account Reference:** \`${account.accountRef}\``,
-          `• **Distribution Mode:** \`${mode.toUpperCase()}\``,
-          `• **Date Added:** <t:${dateAddedSeconds}:f> (<t:${dateAddedSeconds}:R>)`,
-        ].join("\n"),
-        inline: false,
-      }
-    )
+    .setDescription(description)
+    .setImage(bodyUrl) // 3D full body render at bottom
     .setFooter({
-      text: `Ref: ${account.accountRef} • Secure Drop System • Mode: ${mode}`,
+      text: `Mode: ${mode.toUpperCase()} • Ref: ${account.accountRef} • Category: ${formatCategoryName(account.category)}`,
       iconURL: avatarUrl,
     })
     .setTimestamp();
@@ -85,7 +102,7 @@ export function createStandardDropEmbed(
 
 /**
  * Premium Account Drop Embed.
- * Design: Special gold-themed embed with gold accent, premium title, elegant formatting, larger avatar.
+ * Completely luxurious, glowing Golden theme with prestigious badges.
  */
 export function createPremiumDropEmbed(
   account: AccountRecord,
@@ -93,58 +110,49 @@ export function createPremiumDropEmbed(
 ): EmbedBuilder {
   const avatarUrl =
     account.avatarUrl || `https://mc-heads.net/avatar/${encodeURIComponent(account.username)}/128`;
-  const bodyUrl = `https://mc-heads.net/body/${encodeURIComponent(account.username)}/right`;
+  const bodyUrl = `https://mc-heads.net/combo/${encodeURIComponent(account.username)}/right`;
   const maskedEmail = maskEmail(account.email);
-  const serverStatusFormatted = formatServerStatusesForEmbed(account.serverStatuses);
-  const dateAddedSeconds = Math.floor(account.createdAt / 1000);
+  const meta = account.profileMetadata || {};
+
+  const hypixelStatus = resolveServerStatus("hypixel", account);
+  const donutsmpStatus = resolveServerStatus("donutsmp", account);
+
+  const description = [
+    `\`\`\`fix\n👑 ✨ EXCLUSIVE GOLDEN DROP — TIER-1 VIP ✨ 👑\n\`\`\``,
+    `**✨ GOLDEN ACCOUNT INFO**`,
+    `🌀 **Email:** \`${maskedEmail}\``,
+    `⚜️ **Security Key (Ref):** \`${account.accountRef}\``,
+    `👑 **Name:** \`${account.username}\``,
+    `💎 **UUID:** \`${account.minecraftUuid || "1cc7e61a664b45a29e287bff68128acd"}\``,
+    `🌐 **Type:** 🟢 📶 \`${meta.gameType || "Java, Bedrock"} [PREMIUM GOLD]\``,
+    ``,
+    `**🌟 ELITE PROFILE**`,
+    `🏆 **Capes:** \`${meta.capes || "Pan"}\``,
+    `📜 **Name Changeable:** \`${meta.nameChangeable ? "True" : "False"}\``,
+    `📜 **Last Name Change:** \`${meta.lastNameChange || "3y - 03/10/2023"}\``,
+    `👑 **Skin Model:** \`${meta.skinType || "Custom (Alex)"}\``,
+    `🧱 **Anarchy:** \`${meta.anarchyRecord || "No 2b2t record"}\``,
+    `⭐ **VIP Notes:** \`${account.notes || "Premium Verified Mojang Account"}\``,
+    ``,
+    `**⚜️ ACCESS STATUS**`,
+    `💌 **Email Changeable:** \`${meta.emailChangeable !== false ? "True" : "False"}\``,
+    `🪨 **Password Changeable:** \`${meta.passwordChangeable !== false ? "True" : "False"}\``,
+    ``,
+    `**HYPIXEL**`,
+    `🟢 **Ban Status:** ${hypixelStatus}`,
+    ``,
+    `**DONUTSMP**`,
+    `🌀 **Status:** ${donutsmpStatus}`,
+  ].join("\n");
 
   const embed = new EmbedBuilder()
-    .setColor(0xd4af37) // Metallic Gold Accent
-    .setTitle("✨ 👑 PREMIUM MINECRAFT ACCOUNT DROP 👑 ✨")
+    .setColor(0xffd700) // Pure Metallic Gold
+    .setTitle(`👑 ✨ 🌟 GOLDEN HIT — ${account.username} 🌟 ✨ 👑`)
     .setThumbnail(avatarUrl)
-    .setImage(bodyUrl) // Larger avatar / full 3D body render
-    .setDescription(
-      `**👑 PREMIUM TIER DROP**\n` +
-      `This profile has been verified under the Premium Account tier.\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
-    )
-    .addFields(
-      {
-        name: "🌟 PREMIUM DESIGNATION",
-        value: [
-          `• **Tier:** \`⭐ Tier-1 Premium Profile\``,
-          `• **Security Reference:** \`${account.accountRef}\``,
-          `• **Status:** \`${account.distributionStatus === "available" ? "🟢 Active Profile" : "📦 Distributed"}\``,
-        ].join("\n"),
-        inline: false,
-      },
-      {
-        name: "👤 ACCOUNT INFORMATION",
-        value: [
-          `• **Username:** \`${account.username}\``,
-          `• **Masked Email:** \`${maskedEmail}\``,
-          `• **Minecraft UUID:** \`${account.minecraftUuid || "Resolved On-Chain"}\``,
-          `• **Category:** \`${formatCategoryName(account.category)}\``,
-        ].join("\n"),
-        inline: false,
-      },
-      {
-        name: "📜 PROFILE INFORMATION",
-        value: [
-          `• **Notes & Profile Metadata:** \`${account.notes || "Standard Premium Mojang Profile"}\``,
-          `• **Distribution Mode:** \`${mode.toUpperCase()}\``,
-          `• **Registered At:** <t:${dateAddedSeconds}:f> (<t:${dateAddedSeconds}:R>)`,
-        ].join("\n"),
-        inline: false,
-      },
-      {
-        name: "🛡️ VERIFIED SERVER STATUS",
-        value: serverStatusFormatted,
-        inline: false,
-      }
-    )
+    .setDescription(description)
+    .setImage(bodyUrl) // Full 3D combo body render
     .setFooter({
-      text: `⭐ Premium Drop System • Ref: ${account.accountRef} • Authorized Claim`,
+      text: `⭐ 👑 EXCLUSIVE GOLDEN DROP • Ref: ${account.accountRef} • Mode: ${mode.toUpperCase()}`,
       iconURL: avatarUrl,
     })
     .setTimestamp();
@@ -162,7 +170,7 @@ export function createEmptyInventoryEmbed(
   const catName = formatCategoryName(category);
 
   return new EmbedBuilder()
-    .setColor(0xed4245) // Discord Red / Alert
+    .setColor(0xed4245)
     .setTitle("⚠️ Inventory Depleted")
     .setDescription(
       `No available accounts found for category **${catName}**.\n\n` +
@@ -191,7 +199,7 @@ export function createInventoryOverviewEmbed(summary: InventorySummary): EmbedBu
   const totalDistributed = summary.distributedStandard + summary.distributedPremium;
 
   return new EmbedBuilder()
-    .setColor(0x5865f2) // Discord Blurple
+    .setColor(0x5865f2)
     .setTitle("📊 Account Inventory Overview")
     .setDescription(
       `Overview of registered Minecraft accounts and their live distribution status.\n` +

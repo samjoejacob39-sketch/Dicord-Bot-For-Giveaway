@@ -19,6 +19,17 @@ export interface ServerCheckStatus {
   details?: string;
 }
 
+export interface AccountProfileMetadata {
+  skinType?: string;
+  capes?: string;
+  nameChangeable?: boolean;
+  lastNameChange?: string;
+  anarchyRecord?: string;
+  emailChangeable?: boolean;
+  passwordChangeable?: boolean;
+  gameType?: string;
+}
+
 export interface AccountRecord {
   id: string;
   username: string;
@@ -31,6 +42,7 @@ export interface AccountRecord {
   notes?: string;
   distributionStatus: AccountDistributionStatus;
   serverStatuses: ServerCheckStatus[];
+  profileMetadata?: AccountProfileMetadata;
   addedBy: string;
   createdAt: number;
   updatedAt: number;
