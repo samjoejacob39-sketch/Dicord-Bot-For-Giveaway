@@ -1,0 +1,33 @@
+{
+  "name": "discord-antispam-bot",
+  "version": "1.0.0",
+  "description": "Production-quality Discord Anti-Spam & Anti-Flood moderation bot",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/ --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "deploy-commands": "ts-node src/deploy-commands.ts"
+  },
+  "dependencies": {
+    "@types/sql.js": "^1.4.11",
+    "discord.js": "^14.16.0",
+    "dotenv": "^16.4.0",
+    "sql.js": "^1.14.2",
+    "ssh2": "^1.17.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
