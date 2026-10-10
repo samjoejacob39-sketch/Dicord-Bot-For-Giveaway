@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "lint": "eslint src/ --ext .ts",
     "typecheck": "tsc --noEmit",
-    "deploy-commands": "ts-node src/deploy-commands.ts"
+    "deploy-commands": "ts-node src/deploy-commands.ts",
+    "launch": "npm run deploy-commands && npm run build && npm start"
   },
   "dependencies": {
     "@types/sql.js": "^1.4.11",
