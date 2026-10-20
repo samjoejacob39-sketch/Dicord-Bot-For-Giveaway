@@ -5,6 +5,7 @@ import {
   ChatInputCommandInteraction,
   ComponentType,
   EmbedBuilder,
+  MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from "discord.js";
@@ -16,11 +17,10 @@ import {
 } from "../types";
 import {
   createDropActionRow,
+  createDropEmbeds,
   createEmptyInventoryEmbed,
   createInventoryDetailedEmbed,
   createInventoryOverviewEmbed,
-  createPremiumDropEmbed,
-  createStandardDropEmbed,
   formatCategoryName,
 } from "../embeds/accountEmbeds";
 import { resolveMinecraftProfile } from "../services/minecraft";
@@ -116,6 +116,12 @@ export const accgiverCommand = new SlashCommandBuilder()
             { name: "🟢 Standard", value: "standard" }
           )
       )
+      .addUserOption((opt) =>
+        opt
+          .setName("recipient")
+          .setDescription("Customer receiving this account (optional)")
+          .setRequired(false)
+      )
   )
 
   // 4. Inventory Overview & List
@@ -194,7 +200,7 @@ export async function handleAccgiverCommand(
     await interaction.reply({
       content:
         "❌ **Access Denied:** Only the bot owner and authorized administrators have permission to manage accounts or trigger drops.",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -223,7 +229,7 @@ export async function handleAccgiverCommand(
     default:
       await interaction.reply({
         content: `Unknown subcommand: ${subcommand}`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
   }
 }
@@ -247,7 +253,7 @@ async function handleAddAccount(
     await interaction.reply({
       content:
         "❌ **Invalid input:** Do not paste raw password/token dumps into the notes or email fields. Use the dedicated `password` option.",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -257,12 +263,12 @@ async function handleAddAccount(
   if (existing) {
     await interaction.reply({
       content: `❌ **Duplicate Account:** Account \`${username}\` is already registered in inventory.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   // Resolve complete Minecraft profile in the backend automatically
   const profile = await resolveMinecraftProfile(username);
@@ -304,13 +310,15 @@ async function handleAddAccount(
   try {
     db.addAccount(newAccount);
 
-    const embed = isPremium
-      ? createPremiumDropEmbed(newAccount)
-      : createStandardDropEmbed(newAccount);
+    const embeds = createDropEmbeds(newAccount, {
+      guildName: interaction.guild?.name,
+      guildIconUrl: interaction.guild?.iconURL({ size: 128 }) ?? undefined,
+      mode: "preview",
+    });
 
     await interaction.editReply({
-      content: `✅ **${isPremium ? "Premium Golden" : "Standard"} Account Registered Successfully!** Here is the preview:`,
-      embeds: [embed],
+      content: `✅ **${isPremium ? "Premium" : "Standard"} account registered.** Preview below:`,
+      embeds,
       components: [createDropActionRow(newAccount)],
     });
   } catch (err: any) {
@@ -329,6 +337,7 @@ async function handleDrop(
   db: DatabaseService
 ): Promise<void> {
   const type = interaction.options.getString("type", true);
+  const recipient = interaction.options.getUser("recipient");
   const isPremiumDrop = type === "premium";
   const category = isPremiumDrop
     ? AccountCategory.PREMIUM
@@ -341,31 +350,40 @@ async function handleDrop(
   if (!account) {
     const summary = db.getInventorySummary();
     const emptyEmbed = createEmptyInventoryEmbed(category, summary);
-    await interaction.reply({ embeds: [emptyEmbed], ephemeral: true });
+    await interaction.reply({ embeds: [emptyEmbed], flags: MessageFlags.Ephemeral });
     return;
   }
 
   // Record drop in database — always one_time so the account leaves inventory
   const dropId = generateId();
+  const droppedAt = Date.now();
   db.recordDrop({
     id: dropId,
     accountId: account.id,
+    recipientId: recipient?.id,
     droppedBy: interaction.user.id,
     category: account.category,
     isPremium: account.isPremium,
     mode: "one_time",
     guildId: interaction.guildId || undefined,
     channelId: interaction.channelId || undefined,
-    timestamp: Date.now(),
+    timestamp: droppedAt,
   });
 
-  // Generate embed with appropriate design
-  const embed = account.isPremium
-    ? createPremiumDropEmbed(account)
-    : createStandardDropEmbed(account);
+  // Rich delivery card (+ optional cape showcase)
+  const embeds = createDropEmbeds(account, {
+    guildName: interaction.guild?.name,
+    guildIconUrl: interaction.guild?.iconURL({ size: 128 }) ?? undefined,
+    deliveredBy: interaction.user.id,
+    recipientId: recipient?.id,
+    deliveredAt: droppedAt,
+  });
 
   await interaction.reply({
-    embeds: [embed],
+    content: recipient
+      ? `<@${recipient.id}> — your account is ready! 🎉`
+      : undefined,
+    embeds,
     components: [createDropActionRow(account)],
   });
 }
@@ -426,7 +444,7 @@ async function handleInventory(
     const response = await interaction.reply({
       embeds: [pageEmbed],
       components: totalPages > 1 ? [row] : [],
-      ephemeral: true, // Restrict detailed inventory to authorized admin
+      flags: MessageFlags.Ephemeral, // Restrict detailed inventory to authorized admin
     });
 
     if (totalPages > 1) {
@@ -440,7 +458,7 @@ async function handleInventory(
         if (!isUserAuthorized(btnInteraction)) {
           await btnInteraction.reply({
             content: "❌ You are not authorized to interact with this inventory view.",
-            ephemeral: true,
+            flags: MessageFlags.Ephemeral,
           });
           return;
         }
@@ -491,7 +509,7 @@ async function handleInventory(
   const overviewEmbed = createInventoryOverviewEmbed(summary);
   await interaction.reply({
     embeds: [overviewEmbed],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -508,7 +526,7 @@ async function handleSetCategory(
   if (!isValidCategory(categoryStr)) {
     await interaction.reply({
       content: `❌ Invalid category: \`${categoryStr}\`.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -519,7 +537,7 @@ async function handleSetCategory(
   if (!updated) {
     await interaction.reply({
       content: `❌ Account with username \`${username}\` not found in inventory.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -532,7 +550,7 @@ async function handleSetCategory(
     )
     .setTimestamp();
 
-  await interaction.reply({ embeds: [embed], ephemeral: true });
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }
 
 /**
@@ -548,7 +566,7 @@ async function handleDelete(
   if (!deleted) {
     await interaction.reply({
       content: `❌ Account with username \`${username}\` was not found in inventory.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -559,5 +577,5 @@ async function handleDelete(
     .setDescription(`Account **${username}** has been permanently removed from inventory.`)
     .setTimestamp();
 
-  await interaction.reply({ embeds: [embed], ephemeral: true });
+  await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
 }

@@ -24,6 +24,8 @@ import {
   createInventoryOverviewEmbed,
   createInventoryDetailedEmbed,
   createDropActionRow,
+  createCapeShowcaseEmbed,
+  createDropEmbeds,
 } from "../src/embeds/accountEmbeds";
 
 const TEST_DB_PATH = path.join(__dirname, "temp_test_accgiver.sqlite");
@@ -497,21 +499,23 @@ describe("Account Drop System & Premium Accounts", () => {
   });
 
   describe("10. Embed Designs", () => {
-    it("should generate dark embed for standard drops", () => {
+    it("should generate blue embed for standard deliveries", () => {
       const acc = createMockAccount({ isPremium: false });
       const embed = createStandardDropEmbed(acc);
 
       expect(embed.data.color).toBe(0x0099ff); // Blue theme
-      expect(embed.data.title).toContain("Account Dropped");
-      expect(embed.data.thumbnail?.url).toBe(acc.avatarUrl);
+      expect(embed.data.title).toContain("Account Delivered");
+      expect(embed.data.thumbnail?.url).toBe(
+        acc.avatarUrl?.replace(/\/\d+$/, "/256")
+      );
     });
 
-    it("should generate gold-themed embed for premium drops", () => {
+    it("should generate gold-themed embed for premium deliveries", () => {
       const acc = createMockAccount({ isPremium: true });
       const embed = createPremiumDropEmbed(acc);
 
       expect(embed.data.color).toBe(0xffd700); // Pure Gold
-      expect(embed.data.title).toContain("PREMIUM DROP");
+      expect(embed.data.title).toContain("PREMIUM DELIVERED");
       expect(embed.data.image?.url).toContain("mc-heads.net/"); // High-res 3D combo render
     });
 
@@ -570,7 +574,73 @@ describe("Account Drop System & Premium Accounts", () => {
       }>;
 
       const capeButton = buttons.find((button) => button.label === "Cape");
-      expect(capeButton?.url).toBe("https://crafatar.com/capes/abc123");
+      expect(capeButton?.url).toBe("https://crafatar.com/capes/abc123?scale=10");
+    });
+
+    it("should include a copy-friendly credential block and next steps", () => {
+      const acc = createMockAccount({
+        username: "CredPlayer",
+        email: "cred@example.com",
+        password: "Pass!123",
+      });
+      const embed = createStandardDropEmbed(acc);
+
+      expect(embed.data.description).toContain("```txt");
+      expect(embed.data.description).toContain("Email:    cred@example.com");
+      expect(embed.data.description).toContain("Password: Pass!123");
+      expect(embed.data.description).toContain("Next steps");
+    });
+
+    it("should greet the recipient and show a delivery receipt", () => {
+      const acc = createMockAccount();
+      const embed = createStandardDropEmbed(acc, {
+        recipientId: "123456789012345678",
+        deliveredBy: "987654321098765432",
+        deliveredAt: 1700000000000,
+      });
+
+      expect(embed.data.description).toContain("<@123456789012345678>");
+
+      const receipt = embed.data.fields?.find(
+        (field) => field.name === "🧾 Delivery Receipt"
+      );
+      expect(receipt?.value).toContain("<@987654321098765432>");
+      expect(receipt?.value).toContain("<t:1700000000:R>");
+    });
+
+    it("should use preview titles and skip delivery receipt fields", () => {
+      const acc = createMockAccount({ username: "PreviewPlayer" });
+      const embed = createStandardDropEmbed(acc, {
+        mode: "preview",
+        guildName: "Musiccc",
+      });
+
+      expect(embed.data.title).toContain("Account Registered");
+      expect(embed.data.author?.name).toContain("Musiccc Deliveries");
+      expect(
+        embed.data.fields?.some(
+          (field) => field.name === "🧾 Delivery Receipt"
+        )
+      ).toBe(false);
+    });
+
+    it("should add a cape showcase card only when a cape exists", () => {
+      const noCape = createMockAccount();
+      expect(createCapeShowcaseEmbed(noCape)).toBeNull();
+
+      const capeAcc = createMockAccount({
+        profileMetadata: {
+          hasCape: true,
+          capeUrl: "https://crafatar.com/capes/abc123",
+        },
+      });
+      const capeEmbed = createCapeShowcaseEmbed(capeAcc);
+      expect(capeEmbed?.data.image?.url).toBe(
+        "https://crafatar.com/capes/abc123?scale=10"
+      );
+
+      expect(createDropEmbeds(capeAcc, { mode: "drop" })).toHaveLength(2);
+      expect(createDropEmbeds(capeAcc, { mode: "preview" })).toHaveLength(1);
     });
 
     it("should generate inventory overview embed", () => {

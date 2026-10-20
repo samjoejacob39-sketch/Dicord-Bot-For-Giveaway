@@ -1,4 +1,5 @@
-import { Client, GatewayIntentBits, Events } from "discord.js";
+import { Client, GatewayIntentBits, Events, MessageFlags } from "discord.js";
+import type { InteractionReplyOptions } from "discord.js";
 import { config } from "./config";
 import { SQLiteService } from "./database";
 import { handleAccgiverCommand } from "./commands/accgiver";
@@ -39,9 +40,9 @@ async function main() {
         await handleAccgiverCommand(interaction, db);
       } catch (err) {
         logger.error("Error handling accgiver command:", err);
-        const reply = {
+        const reply: InteractionReplyOptions = {
           content: "An error occurred while executing the account command.",
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         };
         if (interaction.replied || interaction.deferred) {
           await interaction.followUp(reply).catch(() => {});

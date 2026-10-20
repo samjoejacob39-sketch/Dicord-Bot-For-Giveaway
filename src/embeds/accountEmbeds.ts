@@ -13,6 +13,21 @@ import {
 const MINECRAFT_LOGIN_URL = "https://www.minecraft.net/login";
 const MC_HEADS_BASE = "https://mc-heads.net";
 
+export interface DropEmbedOptions {
+  /** Server name used for the branded author line. */
+  guildName?: string;
+  /** Server icon used for the branded author icon. */
+  guildIconUrl?: string;
+  /** Discord user ID of the admin delivering the account. */
+  deliveredBy?: string;
+  /** Discord user ID of the customer receiving the account. */
+  recipientId?: string;
+  /** Delivery timestamp (defaults to now). */
+  deliveredAt?: number;
+  /** "drop" shows delivery details, "preview" is used by the add command. */
+  mode?: "drop" | "preview";
+}
+
 /**
  * Format category name for human-readable display.
  */
@@ -28,10 +43,7 @@ export function formatCategoryName(category: AccountCategory | string): string {
 }
 
 function renderBase(account: AccountRecord): string {
-  return (
-    account.minecraftUuid ||
-    encodeURIComponent(account.username)
-  );
+  return account.minecraftUuid || encodeURIComponent(account.username);
 }
 
 function comboUrl(account: AccountRecord): string {
@@ -46,18 +58,39 @@ function nameMcUrl(account: AccountRecord): string {
   return `https://namemc.com/profile/${encodeURIComponent(account.username)}`;
 }
 
+function avatarUrl(account: AccountRecord, size = 256): string {
+  return (
+    account.avatarUrl?.replace(/\/\d+$/, `/${size}`) ||
+    `${MC_HEADS_BASE}/avatar/${renderBase(account)}/${size}`
+  );
+}
+
+function capeRenderUrl(account: AccountRecord): string | undefined {
+  const meta = account.profileMetadata || {};
+  if (meta.hasCape !== true || !meta.capeUrl) return undefined;
+  // Crafatar supports upscaled cape renders for sharper images.
+  if (meta.capeUrl.includes("crafatar.com/capes/") && !meta.capeUrl.includes("?")) {
+    return `${meta.capeUrl}?scale=10`;
+  }
+  return meta.capeUrl;
+}
+
+/** Prevents credentials from breaking out of the fenced code block. */
+function codeSafe(value: string | undefined): string {
+  return (value || "Not set").replace(/`/g, "'").replace(/\r?\n/g, " ");
+}
+
 /**
  * Discord only makes the embed *title* and *author name* clickable.
  * Everything else is exposed through masked links and link buttons.
  */
 export function buildEmbedLinks(account: AccountRecord) {
-  const meta = account.profileMetadata || {};
-  const hasCape = meta.hasCape === true && !!meta.capeUrl;
+  const cape = capeRenderUrl(account);
 
   return {
     nameMc: nameMcUrl(account),
     skin: skinRenderUrl(account),
-    cape: hasCape ? (meta.capeUrl as string) : undefined,
+    cape,
     login: MINECRAFT_LOGIN_URL,
   };
 }
@@ -106,34 +139,22 @@ export function createDropActionRow(
 }
 
 /**
- * Shared fields for both standard and premium drops.
- * Keeps the embed focused on the essentials: email, password, username, skins, capes.
+ * Customer-friendly fields: capes, skin model, delivery receipt and quick links.
+ * Credentials live in a copy-friendly code block inside the description.
  */
-function buildCoreFields(account: AccountRecord) {
+function buildCoreFields(
+  account: AccountRecord,
+  options: DropEmbedOptions
+): Array<{ name: string; value: string; inline: boolean }> {
   const meta = account.profileMetadata || {};
-  const hasCape = meta.hasCape === true && !!meta.capeUrl;
+  const cape = capeRenderUrl(account);
+  const isPreview = options.mode === "preview";
+  const deliveredAt = options.deliveredAt ?? Date.now();
 
-  return [
-    {
-      name: "📧 Email",
-      value: `\`${account.email || "Not set"}\``,
-      inline: true,
-    },
-    {
-      name: "🔑 Password",
-      value: `\`${account.password || "Not set"}\``,
-      inline: true,
-    },
-    {
-      name: "👤 Username",
-      value: `\`${account.username}\``,
-      inline: true,
-    },
+  const fields: Array<{ name: string; value: string; inline: boolean }> = [
     {
       name: "🧥 Capes",
-      value: hasCape
-        ? `[Yes — view cape](${meta.capeUrl})`
-        : "`None`",
+      value: cape ? `[Yes — view cape](${cape})` : "`None`",
       inline: true,
     },
     {
@@ -142,82 +163,195 @@ function buildCoreFields(account: AccountRecord) {
       inline: true,
     },
     {
-      name: "🔗 Quick Links",
-      value: [
-        `[NameMC Profile](${nameMcUrl(account)})`,
-        `[3D Skin Render](${skinRenderUrl(account)})`,
-        hasCape ? `[Cape Render](${meta.capeUrl})` : null,
-        `[Minecraft Login](${MINECRAFT_LOGIN_URL})`,
-      ]
-        .filter(Boolean)
-        .join(" • "),
-      inline: false,
+      name: "📦 Type",
+      value: `\`${formatCategoryName(account.category)}\``,
+      inline: true,
     },
   ];
+
+  if (!isPreview) {
+    fields.push({
+      name: "🧾 Delivery Receipt",
+      value: `👤 ${
+        options.deliveredBy ? `<@${options.deliveredBy}>` : "Staff"
+      } • 🕒 <t:${Math.floor(deliveredAt / 1000)}:R>`,
+      inline: false,
+    });
+  }
+
+  fields.push({
+    name: "🔗 Quick Links",
+    value: [
+      `[NameMC Profile](${nameMcUrl(account)})`,
+      `[3D Skin Render](${skinRenderUrl(account)})`,
+      cape ? `[Cape Render](${cape})` : null,
+      `[Minecraft Login](${MINECRAFT_LOGIN_URL})`,
+    ]
+      .filter(Boolean)
+      .join(" • "),
+    inline: false,
+  });
+
+  return fields;
+}
+
+function buildCredentialBlock(account: AccountRecord): string {
+  return [
+    "```txt",
+    `Email:    ${codeSafe(account.email)}`,
+    `Password: ${codeSafe(account.password)}`,
+    `Username: ${codeSafe(account.username)}`,
+    "```",
+  ].join("\n");
+}
+
+function buildDescription(
+  account: AccountRecord,
+  options: DropEmbedOptions
+): string {
+  const isPreview = options.mode === "preview";
+  const isPremium = account.isPremium;
+
+  const greeting = isPreview
+    ? "📦 **Account preview** — this is how the account will look when dropped."
+    : options.recipientId
+      ? `🎉 <@${options.recipientId}>, **your Minecraft account is ready!**`
+      : "🎉 **Your Minecraft account is ready!**";
+
+  const intro = isPremium
+    ? "**Premium account** — sign in at [minecraft.net](https://www.minecraft.net/login) and secure it immediately."
+    : "Sign in at [minecraft.net](https://www.minecraft.net/login) and secure it right away.";
+
+  return [
+    greeting,
+    intro,
+    "",
+    buildCredentialBlock(account),
+    "",
+    "🔐 **Next steps:** Change password → Change email → Enable 2FA",
+  ].join("\n");
+}
+
+function buildBrandAuthor(account: AccountRecord, options: DropEmbedOptions) {
+  const icon = options.guildIconUrl || avatarUrl(account, 128);
+  const name = account.isPremium
+    ? options.guildName
+      ? `👑 ${options.guildName} Premium`
+      : "👑 Premium Delivery"
+    : options.guildName
+      ? `🎁 ${options.guildName} Deliveries`
+      : "🎁 Account Delivery";
+
+  return {
+    name,
+    iconURL: icon,
+    url: nameMcUrl(account),
+  };
 }
 
 /**
  * Standard Account Drop Embed.
- * Rich, linkable embed with account credentials, skin links, and 3D render.
+ * Rich, linkable embed with a copy-ready credential block, delivery receipt,
+ * skin links and a 3D render.
  */
-export function createStandardDropEmbed(account: AccountRecord): EmbedBuilder {
-  const avatarUrl =
-    account.avatarUrl ||
-    `https://mc-heads.net/avatar/${encodeURIComponent(account.username)}/128`;
+export function createStandardDropEmbed(
+  account: AccountRecord,
+  options: DropEmbedOptions = {}
+): EmbedBuilder {
+  const isPreview = options.mode === "preview";
+  const avatar = avatarUrl(account);
 
   return new EmbedBuilder()
-    .setAuthor({
-      name: "🎁 Account Drop System",
-      iconURL: avatarUrl,
-      url: nameMcUrl(account),
-    })
+    .setAuthor(buildBrandAuthor(account, options))
     .setColor(0x0099ff)
-    .setTitle(`✅ Account Dropped — ${account.username}`)
-    .setURL(nameMcUrl(account))
-    .setThumbnail(avatarUrl)
-    .setDescription(
-      `Your account is ready. Sign in at [minecraft.net](https://www.minecraft.net/login) and change the details right away.\n` +
-        `Use [NameMC](${nameMcUrl(account)}) to inspect the skin, capes, and name history.`
+    .setTitle(
+      isPreview
+        ? `✅ Account Registered — ${account.username}`
+        : `✅ Account Delivered — ${account.username}`
     )
-    .addFields(buildCoreFields(account))
-    .setImage(comboUrl(account)) // Skin 1 + Skin 2 side-by-side 3D render
+    .setURL(nameMcUrl(account))
+    .setThumbnail(avatar)
+    .setDescription(buildDescription(account, options))
+    .addFields(buildCoreFields(account, options))
+    .setImage(comboUrl(account))
     .setFooter({
-      text: `Ref: ${account.accountRef} • ${formatCategoryName(account.category)}`,
-      iconURL: avatarUrl,
+      text: isPreview
+        ? `Preview • Ref: ${account.accountRef} • ${formatCategoryName(account.category)}`
+        : `✅ Delivered • Ref: ${account.accountRef} • ${formatCategoryName(account.category)}`,
+      iconURL: options.guildIconUrl || avatar,
     })
-    .setTimestamp();
+    .setTimestamp(options.deliveredAt ?? Date.now());
 }
 
 /**
  * Premium Account Drop Embed.
  * Same essentials with a luxurious gold theme and exclusive badge.
  */
-export function createPremiumDropEmbed(account: AccountRecord): EmbedBuilder {
-  const avatarUrl =
-    account.avatarUrl ||
-    `https://mc-heads.net/avatar/${encodeURIComponent(account.username)}/128`;
+export function createPremiumDropEmbed(
+  account: AccountRecord,
+  options: DropEmbedOptions = {}
+): EmbedBuilder {
+  const isPreview = options.mode === "preview";
+  const avatar = avatarUrl(account);
 
   return new EmbedBuilder()
-    .setAuthor({
-      name: "👑 Premium Golden Drop",
-      iconURL: avatarUrl,
-      url: nameMcUrl(account),
-    })
+    .setAuthor(buildBrandAuthor(account, options))
     .setColor(0xffd700)
-    .setTitle(`👑 PREMIUM DROP — ${account.username} ✨`)
-    .setURL(nameMcUrl(account))
-    .setThumbnail(avatarUrl)
-    .setDescription(
-      `**Exclusive premium account.** Sign in at [minecraft.net](https://www.minecraft.net/login) and secure it immediately.\n` +
-        `Inspect the profile on [NameMC](${nameMcUrl(account)}).`
+    .setTitle(
+      isPreview
+        ? `👑 PREMIUM ACCOUNT — ${account.username} ✨`
+        : `👑 PREMIUM DELIVERED — ${account.username} ✨`
     )
-    .addFields(buildCoreFields(account))
-    .setImage(comboUrl(account)) // Skin 1 + Skin 2 side-by-side 3D render
+    .setURL(nameMcUrl(account))
+    .setThumbnail(avatar)
+    .setDescription(buildDescription(account, options))
+    .addFields(buildCoreFields(account, options))
+    .setImage(comboUrl(account))
     .setFooter({
-      text: `⭐ PREMIUM • Ref: ${account.accountRef} • ${formatCategoryName(account.category)}`,
-      iconURL: avatarUrl,
+      text: isPreview
+        ? `Preview • Ref: ${account.accountRef} • ${formatCategoryName(account.category)}`
+        : `⭐ Premium • ✅ Delivered • Ref: ${account.accountRef}`,
+      iconURL: options.guildIconUrl || avatar,
     })
-    .setTimestamp();
+    .setTimestamp(options.deliveredAt ?? Date.now());
+}
+
+/**
+ * Optional second card that shows the account's cape render.
+ * Returns null when the account does not own a cape.
+ */
+export function createCapeShowcaseEmbed(
+  account: AccountRecord
+): EmbedBuilder | null {
+  const cape = capeRenderUrl(account);
+  if (!cape) return null;
+
+  return new EmbedBuilder()
+    .setColor(account.isPremium ? 0xffd700 : 0x0099ff)
+    .setTitle(`🧥 Cape Showcase — ${account.username}`)
+    .setURL(nameMcUrl(account))
+    .setDescription(
+      `This account owns a cape. [View the full profile on NameMC](${nameMcUrl(account)}).`
+    )
+    .setImage(cape)
+    .setFooter({ text: `Ref: ${account.accountRef} • Cape render via Crafatar` });
+}
+
+/**
+ * Builds the full drop message payload: main card + optional cape card.
+ */
+export function createDropEmbeds(
+  account: AccountRecord,
+  options: DropEmbedOptions = {}
+): EmbedBuilder[] {
+  const main = account.isPremium
+    ? createPremiumDropEmbed(account, options)
+    : createStandardDropEmbed(account, options);
+
+  if (options.mode === "preview") return [main];
+
+  const cape = createCapeShowcaseEmbed(account);
+  return cape ? [main, cape] : [main];
 }
 
 /**
@@ -337,14 +471,14 @@ export function createInventoryDetailedEmbed(
     const statusBadge =
       acc.distributionStatus === "available" ? "🟢 Available" : "🔴 Dropped";
     const meta = acc.profileMetadata || {};
-    const hasCape = meta.hasCape === true && !!meta.capeUrl;
+    const cape = capeRenderUrl(acc);
 
     embed.addFields({
       name: `${acc.username} [${tierBadge}]`,
       value: [
         `• **Ref:** \`${acc.accountRef}\` • **Status:** ${statusBadge}`,
         `• **Category:** \`${formatCategoryName(acc.category)}\``,
-        `• **Capes:** ${hasCape ? `[Yes](${meta.capeUrl})` : "`None`"} • **Model:** \`${meta.skinType || "Classic"}\``,
+        `• **Capes:** ${cape ? `[Yes](${cape})` : "`None`"} • **Model:** \`${meta.skinType || "Classic"}\``,
         `• **Links:** [NameMC](https://namemc.com/profile/${encodeURIComponent(acc.username)}) • [3D Skin](${skinRenderUrl(acc)})`,
       ].join("\n"),
       inline: false,

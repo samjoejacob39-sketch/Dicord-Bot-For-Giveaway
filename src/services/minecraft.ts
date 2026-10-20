@@ -104,7 +104,7 @@ export async function resolveMinecraftProfile(
                 profile.hasCape = true;
                 profile.capes = "Yes";
                 profile.capeUrl = profile.uuid
-                  ? `https://crafatar.com/capes/${profile.uuid}`
+                  ? `https://crafatar.com/capes/${profile.uuid}?scale=10`
                   : decoded.textures.CAPE.url;
               } else {
                 profile.hasCape = false;

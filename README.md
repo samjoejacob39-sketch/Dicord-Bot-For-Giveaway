@@ -21,6 +21,9 @@ A Discord bot for managing Minecraft account inventory and dropping accounts, bu
   - **Clickable Embed Links**: The embed title and author link to the account's NameMC profile.
   - **Masked Quick Links**: Fields link to NameMC, the 3D skin render, the cape render, and Minecraft login.
   - **Link Buttons**: Dedicated buttons below each drop open NameMC, the 3D skin, the cape (when owned), and Minecraft login.
+  - **Customer Delivery Card**: Copy-ready credential block, personal recipient ping, live “delivered X ago” timestamp, and staff delivery credit.
+  - **Cape Showcase**: Accounts with a cape get a second card with a high-resolution cape render.
+  - **Server Branding**: Drop cards use the server name and icon in the author line.
   - **Depleted Inventory Alert**: Warning embed detailing remaining stock.
   - **Inventory Overview & Pagination**: Stock breakdowns with interactive page navigation buttons.
 - **Automatic Minecraft Lookup**:
@@ -41,7 +44,7 @@ A Discord bot for managing Minecraft account inventory and dropping accounts, bu
 |---|---|---|
 | `addacc` | `/accgiver addacc username:<name> email:<email> password:<pass> [notes]` | Adds a standard account to stock. |
 | `addaccpremium` | `/accgiver addaccpremium username:<name> email:<email> password:<pass> [notes]` | Adds a premium account with `is_premium` flag. |
-| `drop` | `/accgiver drop type:<premium\|standard>` | Drops an account of the chosen type, removes it from inventory, and posts the account embed. |
+| `drop` | `/accgiver drop type:<premium\|standard> [recipient:@user]` | Drops an account of the chosen type, removes it from inventory, pings the recipient (optional), and posts the delivery card. |
 | `inventory` | `/accgiver inventory [page] [category] [detailed]` | Shows available inventory summary and paginated accounts. |
 | `setcategory` | `/accgiver setcategory username:<name> category:<cat>` | Changes an account between premium and standard. |
 | `delete` | `/accgiver delete username:<name>` | Permanently removes an account from inventory. |
