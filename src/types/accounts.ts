@@ -19,6 +19,8 @@ export interface ServerCheckStatus {
 export interface AccountProfileMetadata {
   skinType?: string;
   capes?: string;
+  capeUrl?: string;
+  hasCape?: boolean;
   nameChangeable?: boolean;
   lastNameChange?: string;
   anarchyRecord?: string;
@@ -31,6 +33,7 @@ export interface AccountRecord {
   id: string;
   username: string;
   email: string; // Stored securely in database, masked in user-facing embeds
+  password?: string; // Account password, shown only in drop embeds
   category: AccountCategory;
   isPremium: boolean;
   accountRef: string;

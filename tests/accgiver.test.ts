@@ -33,6 +33,7 @@ function createMockAccount(overrides: Partial<AccountRecord> = {}): AccountRecor
     id: generateId(),
     username: "TestPlayer_" + Math.random().toString(36).substring(2, 7),
     email: "player123@example.com",
+    password: "TestPass123!",
     category: isPrem ? AccountCategory.PREMIUM : AccountCategory.NOT_BANNED,
     isPremium: isPrem,
     accountRef: generateAccountRef(isPrem),
@@ -417,19 +418,29 @@ describe("Account Drop System & Premium Accounts", () => {
       expect(containsDisallowedSecrets("Safe profile notes with capes")).toBe(false);
     });
 
-    it("embeds should never contain passwords or raw emails", () => {
+    it("drop embeds should include email, password, username, skin links and capes", () => {
       const acc = createMockAccount({
         username: "SecurePlayer",
         email: "supersecretmail@test.com",
+        password: "MySecretPass!",
         isPremium: true,
+        profileMetadata: {
+          skinType: "Classic (Steve)",
+          capes: "Yes",
+          capeUrl: "https://crafatar.com/capes/abc123",
+          hasCape: true,
+        },
       });
 
       const embed = createPremiumDropEmbed(acc);
       const serialized = JSON.stringify(embed.toJSON());
 
-      expect(serialized).not.toContain("supersecretmail@test.com");
-      expect(serialized).toContain("su***il@test.com");
-      expect(serialized).not.toContain("password");
+      expect(serialized).toContain("supersecretmail@test.com");
+      expect(serialized).toContain("MySecretPass!");
+      expect(serialized).toContain("SecurePlayer");
+      expect(serialized).toContain("Skin 1 (front)");
+      expect(serialized).toContain("Skin 2 (back)");
+      expect(serialized).toContain("crafatar.com/capes/abc123");
     });
   });
 
@@ -491,7 +502,7 @@ describe("Account Drop System & Premium Accounts", () => {
       const acc = createMockAccount({ isPremium: false });
       const embed = createStandardDropEmbed(acc);
 
-      expect(embed.data.color).toBe(0x2c2f33); // Dark theme
+      expect(embed.data.color).toBe(0x0099ff); // Blue theme
       expect(embed.data.title).toContain("Account Dropped");
       expect(embed.data.thumbnail?.url).toBe(acc.avatarUrl);
     });
@@ -501,7 +512,7 @@ describe("Account Drop System & Premium Accounts", () => {
       const embed = createPremiumDropEmbed(acc);
 
       expect(embed.data.color).toBe(0xffd700); // Pure Gold
-      expect(embed.data.title).toContain("PREMIUM GOLDEN DROP");
+      expect(embed.data.title).toContain("PREMIUM DROP");
       expect(embed.data.image?.url).toContain("mc-heads.net/"); // High-res 3D combo render
     });
 

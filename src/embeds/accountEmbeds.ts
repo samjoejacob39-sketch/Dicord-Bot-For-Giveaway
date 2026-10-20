@@ -4,7 +4,6 @@ import {
   AccountRecord,
   InventorySummary,
 } from "../types/accounts";
-import { maskEmail } from "../utils/security";
 
 /**
  * Format category name for human-readable display.
@@ -20,116 +19,135 @@ export function formatCategoryName(category: AccountCategory | string): string {
   }
 }
 
+function renderBase(account: AccountRecord): string {
+  return (
+    account.minecraftUuid ||
+    encodeURIComponent(account.username)
+  );
+}
+
+function skinFrontUrl(account: AccountRecord): string {
+  return `https://mc-heads.net/body/${renderBase(account)}/left`;
+}
+
+function skinBackUrl(account: AccountRecord): string {
+  return `https://mc-heads.net/body/${renderBase(account)}/right`;
+}
+
+function comboUrl(account: AccountRecord): string {
+  return `https://mc-heads.net/combo/${renderBase(account)}/right`;
+}
+
+function nameMcUrl(account: AccountRecord): string {
+  return `https://namemc.com/profile/${encodeURIComponent(account.username)}`;
+}
+
+/**
+ * Shared fields for both standard and premium drops.
+ * Keeps the embed focused on the essentials: email, password, username, skins, capes.
+ */
+function buildCoreFields(account: AccountRecord) {
+  const meta = account.profileMetadata || {};
+  const hasCape = meta.hasCape === true && !!meta.capeUrl;
+
+  return [
+    {
+      name: "📧 Email",
+      value: `\`${account.email || "Not set"}\``,
+      inline: true,
+    },
+    {
+      name: "🔑 Password",
+      value: `\`${account.password || "Not set"}\``,
+      inline: true,
+    },
+    {
+      name: "👤 Username",
+      value: `\`${account.username}\``,
+      inline: true,
+    },
+    {
+      name: "🧥 Capes",
+      value: hasCape
+        ? `[Yes — view cape](${meta.capeUrl})`
+        : "`None`",
+      inline: true,
+    },
+    {
+      name: "🎨 Skins",
+      value: `[Skin 1 (front)](${skinFrontUrl(account)}) • [Skin 2 (back)](${skinBackUrl(account)})`,
+      inline: true,
+    },
+    {
+      name: "🧬 Model",
+      value: `\`${meta.skinType || "Classic (Steve)"}\``,
+      inline: true,
+    },
+  ];
+}
+
 /**
  * Standard Account Drop Embed.
- * Clean, modern dark design with well-organized inline fields.
+ * Rich, linkable embed with account credentials, skin links, and 3D render.
  */
 export function createStandardDropEmbed(account: AccountRecord): EmbedBuilder {
   const avatarUrl =
-    account.avatarUrl || `https://mc-heads.net/avatar/${encodeURIComponent(account.username)}/128`;
-  const bodyUrl = `https://mc-heads.net/combo/${encodeURIComponent(account.username)}/right`;
-  const maskedEmail = maskEmail(account.email);
-  const meta = account.profileMetadata || {};
+    account.avatarUrl ||
+    `https://mc-heads.net/avatar/${encodeURIComponent(account.username)}/128`;
 
-  const embed = new EmbedBuilder()
-    .setAuthor({ name: "🎁 Account Drop System" })
-    .setColor(0x2c2f33) // Clean dark theme
+  return new EmbedBuilder()
+    .setAuthor({
+      name: "🎁 Account Drop System",
+      iconURL: avatarUrl,
+      url: nameMcUrl(account),
+    })
+    .setColor(0x0099ff)
     .setTitle(`✅ Account Dropped — ${account.username}`)
+    .setURL(nameMcUrl(account))
     .setThumbnail(avatarUrl)
-    .setImage(bodyUrl) // 3D full-body render at bottom
-    .addFields(
-      {
-        name: "📋 Account Info",
-        value: [
-          `**Name:** \`${account.username}\``,
-          `**Ref:** \`${account.accountRef}\``,
-          `**UUID:** \`${account.minecraftUuid || "Unknown"}\``,
-        ].join("\n"),
-        inline: true,
-      },
-      {
-        name: "🔐 Access",
-        value: [
-          `**Email:** \`${maskedEmail}\``,
-          `**Email Changeable:** \`${meta.emailChangeable !== false ? "Yes" : "No"}\``,
-          `**Password Changeable:** \`${meta.passwordChangeable !== false ? "Yes" : "No"}\``,
-        ].join("\n"),
-        inline: true,
-      },
-      {
-        name: "🎨 Profile",
-        value: [
-          `**Capes:** \`${meta.capes || "None"}\``,
-          `**Skin:** \`${meta.skinType || "Custom (Alex)"}\``,
-          `**Name Changeable:** \`${meta.nameChangeable ? "Yes" : "No"}\``,
-        ].join("\n"),
-        inline: true,
-      }
+    .setDescription(
+      `Your account is ready. Sign in at [minecraft.net](https://www.minecraft.net/login) and change the details right away.\n` +
+        `Use [NameMC](${nameMcUrl(account)}) to inspect the skin, capes, and name history.`
     )
+    .addFields(buildCoreFields(account))
+    .setImage(comboUrl(account)) // Skin 1 + Skin 2 side-by-side 3D render
     .setFooter({
-      text: `Ref: ${account.accountRef} • Category: ${formatCategoryName(account.category)}`,
+      text: `Ref: ${account.accountRef} • ${formatCategoryName(account.category)}`,
       iconURL: avatarUrl,
     })
     .setTimestamp();
-
-  return embed;
 }
 
 /**
  * Premium Account Drop Embed.
- * Luxurious golden theme with prestigious badges and a bigger profile section.
+ * Same essentials with a luxurious gold theme and exclusive badge.
  */
 export function createPremiumDropEmbed(account: AccountRecord): EmbedBuilder {
   const avatarUrl =
-    account.avatarUrl || `https://mc-heads.net/avatar/${encodeURIComponent(account.username)}/128`;
-  const bodyUrl = `https://mc-heads.net/combo/${encodeURIComponent(account.username)}/right`;
-  const maskedEmail = maskEmail(account.email);
-  const meta = account.profileMetadata || {};
+    account.avatarUrl ||
+    `https://mc-heads.net/avatar/${encodeURIComponent(account.username)}/128`;
 
-  const embed = new EmbedBuilder()
-    .setAuthor({ name: "👑 Premium Golden Drop System" })
-    .setColor(0xffd700) // Pure Metallic Gold
-    .setTitle(`👑 ✨ PREMIUM GOLDEN DROP — ${account.username} ✨ 👑`)
+  return new EmbedBuilder()
+    .setAuthor({
+      name: "👑 Premium Golden Drop",
+      iconURL: avatarUrl,
+      url: nameMcUrl(account),
+    })
+    .setColor(0xffd700)
+    .setTitle(`👑 PREMIUM DROP — ${account.username} ✨`)
+    .setURL(nameMcUrl(account))
     .setThumbnail(avatarUrl)
-    .setImage(bodyUrl) // High-res 3D combo body render
-    .addFields(
-      {
-        name: "✨ Premium Account Info",
-        value: [
-          `**Name:** \`${account.username}\``,
-          `**Security Ref:** \`${account.accountRef}\``,
-          `**UUID:** \`${account.minecraftUuid || "Unknown"}\``,
-          `**VIP Notes:** \`${account.notes || "Premium Verified Mojang Account"}\``,
-        ].join("\n"),
-        inline: true,
-      },
-      {
-        name: "🔐 Access",
-        value: [
-          `**Email:** \`${maskedEmail}\``,
-          `**Email Changeable:** \`${meta.emailChangeable !== false ? "Yes" : "No"}\``,
-          `**Password Changeable:** \`${meta.passwordChangeable !== false ? "Yes" : "No"}\``,
-        ].join("\n"),
-        inline: true,
-      },
-      {
-        name: "🎨 Elite Profile",
-        value: [
-          `**Capes:** \`${meta.capes || "Pan Cape"}\``,
-          `**Skin Model:** \`${meta.skinType || "Custom (Alex)"}\``,
-          `**Name Changeable:** \`${meta.nameChangeable ? "Yes" : "No"}\``,
-          `**Last Name Change:** \`${meta.lastNameChange || "Unknown"}\``,
-        ].join("\n"),
-        inline: true,
-      }
+    .setDescription(
+      `**Exclusive premium account.** Sign in at [minecraft.net](https://www.minecraft.net/login) and secure it immediately.\n` +
+        `Inspect the profile on [NameMC](${nameMcUrl(account)}).`
     )
+    .addFields(buildCoreFields(account))
+    .setImage(comboUrl(account)) // Skin 1 + Skin 2 side-by-side 3D render
     .setFooter({
-      text: `⭐ 👑 EXCLUSIVE GOLDEN DROP • Ref: ${account.accountRef}`,
+      text: `⭐ PREMIUM • Ref: ${account.accountRef} • ${formatCategoryName(account.category)}`,
       iconURL: avatarUrl,
     })
     .setTimestamp();
-
-  return embed;
 }
 
 /**
@@ -147,8 +165,8 @@ export function createEmptyInventoryEmbed(
     .setColor(0xed4245)
     .setTitle("⚠️ Inventory Depleted")
     .setDescription(
-      `No available accounts found for category **${catName}**.\n\n` +
-        `All accounts in this category have already been distributed or none have been loaded yet.`
+      `No available accounts found for **${catName}**.\n\n` +
+        `All accounts of this type have been dropped or none have been added yet.`
     )
     .addFields({
       name: "📊 Current Available Stock",
@@ -184,10 +202,10 @@ export function createInventoryOverviewEmbed(summary: InventorySummary): EmbedBu
       {
         name: "📦 Overall Stock",
         value: [
-          `• **Total Standard:** \`${summary.totalStandard}\` (\`${summary.availableStandard}\` avail. / \`${summary.distributedStandard}\` dist.)`,
-          `• **Total Premium:** \`${summary.totalPremium}\` (\`${summary.availablePremium}\` avail. / \`${summary.distributedPremium}\` dist.)`,
+          `• **Total Standard:** \`${summary.totalStandard}\` (\`${summary.availableStandard}\` avail. / \`${summary.distributedStandard}\` dropped)`,
+          `• **Total Premium:** \`${summary.totalPremium}\` (\`${summary.availablePremium}\` avail. / \`${summary.distributedPremium}\` dropped)`,
           `• **Available for Drop:** \`${totalAvailable}\``,
-          `• **Already Distributed:** \`${totalDistributed}\``,
+          `• **Already Dropped:** \`${totalDistributed}\``,
         ].join("\n"),
         inline: false,
       },
@@ -209,14 +227,14 @@ export function createInventoryOverviewEmbed(summary: InventorySummary): EmbedBu
       }
     )
     .setFooter({
-      text: "Use /accgiver inventory detailed:true to view individual accounts.",
+      text: "Use /accgiver inventory detailed:true to view available accounts.",
     })
     .setTimestamp();
 }
 
 /**
  * Detailed Inventory Page Embed.
- * Paginated list of individual accounts.
+ * Paginated list of available accounts (email stays masked here).
  */
 export function createInventoryDetailedEmbed(
   accounts: AccountRecord[],
@@ -233,7 +251,7 @@ export function createInventoryDetailedEmbed(
     .setDescription(
       `Showing accounts ${
         accounts.length > 0 ? (page - 1) * 5 + 1 : 0
-      }-${(page - 1) * 5 + accounts.length} of ${totalItems} registered.`
+      }-${(page - 1) * 5 + accounts.length} of ${totalItems} available.`
     );
 
   if (accounts.length === 0) {
@@ -247,22 +265,23 @@ export function createInventoryDetailedEmbed(
   for (const acc of accounts) {
     const tierBadge = acc.isPremium ? "⭐ PREMIUM" : "📦 STANDARD";
     const statusBadge =
-      acc.distributionStatus === "available" ? "🟢 Available" : "🔴 Distributed";
-    const masked = maskEmail(acc.email);
+      acc.distributionStatus === "available" ? "🟢 Available" : "🔴 Dropped";
+    const meta = acc.profileMetadata || {};
+    const hasCape = meta.hasCape === true && !!meta.capeUrl;
 
     embed.addFields({
       name: `${acc.username} [${tierBadge}]`,
       value: [
         `• **Ref:** \`${acc.accountRef}\` • **Status:** ${statusBadge}`,
         `• **Category:** \`${formatCategoryName(acc.category)}\``,
-        `• **Email:** \`${masked}\``,
+        `• **Capes:** ${hasCape ? `[Yes](${meta.capeUrl})` : "`None`"} • **Model:** \`${meta.skinType || "Classic"}\``,
       ].join("\n"),
       inline: false,
     });
   }
 
   embed.setFooter({
-    text: `Page ${page}/${Math.max(1, totalPages)} • Total: ${totalItems} accounts`,
+    text: `Page ${page}/${Math.max(1, totalPages)} • Total: ${totalItems} available accounts`,
   });
   embed.setTimestamp();
   return embed;

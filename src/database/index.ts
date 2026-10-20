@@ -37,6 +37,7 @@ function rowToAccount(row: any): AccountRecord {
     id: row.id as string,
     username: row.username as string,
     email: row.email as string,
+    password: (row.password as string) || undefined,
     category: row.category as AccountCategory,
     isPremium: row.is_premium === 1,
     accountRef: row.account_ref as string,
@@ -140,6 +141,7 @@ export class SQLiteService implements DatabaseService {
         id TEXT PRIMARY KEY,
         username TEXT NOT NULL COLLATE NOCASE,
         email TEXT NOT NULL,
+        password TEXT NOT NULL DEFAULT '',
         category TEXT NOT NULL,
         is_premium INTEGER NOT NULL DEFAULT 0,
         account_ref TEXT NOT NULL UNIQUE,
@@ -157,6 +159,9 @@ export class SQLiteService implements DatabaseService {
 
     try {
       this.db.run("ALTER TABLE accounts ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'");
+    } catch {}
+    try {
+      this.db.run("ALTER TABLE accounts ADD COLUMN password TEXT NOT NULL DEFAULT ''");
     } catch {}
 
     // Migrate legacy categories that were removed from the system
@@ -373,14 +378,15 @@ export class SQLiteService implements DatabaseService {
 
     this.db.run(
       `INSERT INTO accounts (
-        id, username, email, category, is_premium, account_ref,
+        id, username, email, password, category, is_premium, account_ref,
         minecraft_uuid, avatar_url, notes, distribution_status,
         server_statuses, metadata, added_by, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         account.id,
         account.username,
         account.email,
+        account.password || "",
         account.category,
         account.isPremium ? 1 : 0,
         account.accountRef,
@@ -447,13 +453,14 @@ export class SQLiteService implements DatabaseService {
 
     this.db.run(
       `UPDATE accounts SET
-        username = ?, email = ?, category = ?, is_premium = ?,
+        username = ?, email = ?, password = ?, category = ?, is_premium = ?,
         account_ref = ?, minecraft_uuid = ?, avatar_url = ?, notes = ?,
         distribution_status = ?, server_statuses = ?, metadata = ?, updated_at = ?
       WHERE id = ?`,
       [
         merged.username,
         merged.email,
+        merged.password || "",
         merged.category,
         merged.isPremium ? 1 : 0,
         merged.accountRef,

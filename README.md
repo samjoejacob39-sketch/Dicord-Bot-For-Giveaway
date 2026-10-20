@@ -16,13 +16,16 @@ A production-quality Discord Bot built with **Node.js**, **TypeScript**, **Disco
 - **Role & Owner Authorization**:
   - Only the bot owner (`BOT_OWNER_ID`), configured administrators (`ADMIN_IDS`), guild owners, and users with the Discord `Administrator` permission can manage inventory, edit categories, or trigger drops.
 - **Beautiful Embeds**:
-  - **Standard Drop**: Clean dark embed with inline account info, access, and profile fields, plus a 3D Minecraft body render.
-  - **Premium Drop**: Luxurious golden-themed embed with exclusive badges, premium metadata, and full-profile render.
+  - **Standard Drop**: Rich blue embed with email, password, username, cape status, skin links, and a 3D skin render.
+  - **Premium Drop**: Luxurious golden-themed version of the same embed with exclusive badges.
   - **Depleted Inventory Alert**: Warning embed detailing remaining stock.
   - **Inventory Overview & Pagination**: Stock breakdowns with interactive page navigation buttons.
+- **Automatic Minecraft Lookup**:
+  - Username casing, UUID, skin model (Classic/Slim), skin renders, and cape ownership are fetched automatically from PlayerDB / Mojang texture data.
+  - Cape renders are provided via Crafatar.
 - **Privacy & Security**:
-  - Email addresses are strictly masked (e.g. `an***96@outlook.com`).
-  - Passwords and raw Microsoft credentials are never accepted via commands or leaked into embeds.
+  - Use drop commands only in private or staff-only channels — embeds contain account credentials.
+  - Only distribute accounts you own or have explicit permission to share.
   - Accounts are referenced by unique tokens (e.g. `REF-STD-XXXX`, `REF-PREM-XXXX`).
 
 ### 2. Anti-Spam Moderation Engine (`/antispam`)
@@ -39,9 +42,9 @@ A production-quality Discord Bot built with **Node.js**, **TypeScript**, **Disco
 
 | Subcommand | Syntax | Description |
 |---|---|---|
-| `addacc` | `/accgiver addacc username:<name> email:<email> [notes]` | Adds a standard account to stock. |
-| `addaccpremium` | `/accgiver addaccpremium username:<name> email:<email> [notes]` | Adds a premium account with `is_premium` flag and profile notes. |
-| `drop` | `/accgiver drop type:<premium\|standard>` | Drops an account of the chosen type and removes it from inventory. |
+| `addacc` | `/accgiver addacc username:<name> email:<email> password:<pass> [notes]` | Adds a standard account to stock. |
+| `addaccpremium` | `/accgiver addaccpremium username:<name> email:<email> password:<pass> [notes]` | Adds a premium account with `is_premium` flag. |
+| `drop` | `/accgiver drop type:<premium\|standard>` | Drops an account of the chosen type, removes it from inventory, and posts the account embed. |
 | `inventory` | `/accgiver inventory [page] [category] [detailed]` | Shows available inventory summary and paginated accounts. |
 | `setcategory` | `/accgiver setcategory username:<name> category:<cat>` | Changes an account between premium and standard. |
 | `delete` | `/accgiver delete username:<name>` | Permanently removes an account from inventory. |
@@ -66,7 +69,8 @@ The SQLite database (`./data/antispam.sqlite` by default) persists the following
 ### `accounts`
 - `id` (TEXT PRIMARY KEY) — UUID v4
 - `username` (TEXT NOT NULL COLLATE NOCASE) — Minecraft username (unique)
-- `email` (TEXT NOT NULL) — Stored securely for admin retrieval; masked in embeds
+- `email` (TEXT NOT NULL) — Account email shown in drop embeds
+- `password` (TEXT NOT NULL DEFAULT '') — Account password shown in drop embeds
 - `category` (TEXT NOT NULL) — `not_banned`, `premium`
 - `is_premium` (INTEGER NOT NULL DEFAULT 0) — Boolean flag (1 for premium)
 - `account_ref` (TEXT UNIQUE NOT NULL) — e.g. `REF-STD-A1B2C3D4` or `REF-PREM-XYZ123`
@@ -166,7 +170,8 @@ npm test
 
 ## 🔒 Security Best Practices
 
-1. **Never Accept Raw Credentials**: Discord slash commands do not accept passwords. Always distribute access references or manage secrets off-channel.
-2. **Access Control**: Keep `BOT_OWNER_ID` and `ADMIN_IDS` restricted in `.env`.
-3. **Email Masking**: The bot will automatically mask all emails in embeds so personal addresses are never exposed to regular server members.
-4. **Fail-Safe Status**: Never mark an account as clean/unbanned when a check is inconclusive. Server checks default to `unknown` to prevent false representations.
+1. **Private Drops Only**: Drop embeds contain email/password credentials. Only run `/accgiver drop` in private or staff-only channels.
+2. **Right to Distribute**: Only add accounts you own or have explicit permission to share.
+3. **Access Control**: Keep `BOT_OWNER_ID` and `ADMIN_IDS` restricted in `.env`.
+4. **Protect `.env`**: Never commit your bot token — `.env` is already git-ignored.
+5. **Fail-Safe Status**: Never mark an account as clean/unbanned when a check is inconclusive. Server checks default to `unknown` to prevent false representations.

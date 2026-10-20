@@ -52,13 +52,19 @@ export const accgiverCommand = new SlashCommandBuilder()
       .addStringOption((opt) =>
         opt
           .setName("email")
-          .setDescription("Associated email address (masked in public embeds)")
+          .setDescription("Associated email address")
+          .setRequired(true)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName("password")
+          .setDescription("Account password (shown in the drop embed)")
           .setRequired(true)
       )
       .addStringOption((opt) =>
         opt
           .setName("notes")
-          .setDescription("Profile metadata (capes, ranks - NO PASSWORDS)")
+          .setDescription("Profile metadata (capes, ranks)")
           .setRequired(false)
       )
   )
@@ -77,13 +83,19 @@ export const accgiverCommand = new SlashCommandBuilder()
       .addStringOption((opt) =>
         opt
           .setName("email")
-          .setDescription("Associated email address (masked in public embeds)")
+          .setDescription("Associated email address")
+          .setRequired(true)
+      )
+      .addStringOption((opt) =>
+        opt
+          .setName("password")
+          .setDescription("Account password (shown in the drop embed)")
           .setRequired(true)
       )
       .addStringOption((opt) =>
         opt
           .setName("notes")
-          .setDescription("Profile metadata (capes, ranks - NO PASSWORDS)")
+          .setDescription("Profile metadata (capes, ranks)")
           .setRequired(false)
       )
   )
@@ -225,14 +237,15 @@ async function handleAddAccount(
 ): Promise<void> {
   const username = interaction.options.getString("username", true).trim();
   const email = interaction.options.getString("email", true).trim();
+  const password = interaction.options.getString("password", true).trim();
   const category = isPremium ? AccountCategory.PREMIUM : AccountCategory.NOT_BANNED;
   const notes = interaction.options.getString("notes")?.trim();
 
-  // Security check: passwords/secrets must NEVER be accepted
+  // Security check: do not allow credential dumps inside notes/email fields
   if (containsDisallowedSecrets(notes) || containsDisallowedSecrets(email)) {
     await interaction.reply({
       content:
-        "❌ **Security Violation:** Do not submit raw passwords, tokens, or credentials through Discord commands. Use account references only.",
+        "❌ **Invalid input:** Do not paste raw password/token dumps into the notes or email fields. Use the dedicated `password` option.",
       ephemeral: true,
     });
     return;
@@ -262,6 +275,7 @@ async function handleAddAccount(
     id: generateId(),
     username: profile.username || username,
     email,
+    password,
     category,
     isPremium,
     accountRef,
@@ -272,10 +286,11 @@ async function handleAddAccount(
     serverStatuses,
     profileMetadata: {
       skinType: profile.skinType,
-      capes: notes && notes.toLowerCase().includes("cape") ? notes : profile.capes,
+      capes: profile.capes,
+      capeUrl: profile.capeUrl,
+      hasCape: profile.hasCape,
       nameChangeable: profile.nameChangeable,
       lastNameChange: profile.lastNameChange,
-      anarchyRecord: profile.anarchyRecord,
       emailChangeable: profile.emailChangeable,
       passwordChangeable: profile.passwordChangeable,
       gameType: profile.gameType,
