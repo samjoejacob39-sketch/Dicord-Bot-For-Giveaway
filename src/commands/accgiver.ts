@@ -15,6 +15,7 @@ import {
   ServerCheckStatus,
 } from "../types";
 import {
+  createDropActionRow,
   createEmptyInventoryEmbed,
   createInventoryDetailedEmbed,
   createInventoryOverviewEmbed,
@@ -310,6 +311,7 @@ async function handleAddAccount(
     await interaction.editReply({
       content: `✅ **${isPremium ? "Premium Golden" : "Standard"} Account Registered Successfully!** Here is the preview:`,
       embeds: [embed],
+      components: [createDropActionRow(newAccount)],
     });
   } catch (err: any) {
     logger.error("Failed to add account:", err);
@@ -362,7 +364,10 @@ async function handleDrop(
     ? createPremiumDropEmbed(account)
     : createStandardDropEmbed(account);
 
-  await interaction.reply({ embeds: [embed] });
+  await interaction.reply({
+    embeds: [embed],
+    components: [createDropActionRow(account)],
+  });
 }
 
 /**

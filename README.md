@@ -16,8 +16,11 @@ A production-quality Discord Bot built with **Node.js**, **TypeScript**, **Disco
 - **Role & Owner Authorization**:
   - Only the bot owner (`BOT_OWNER_ID`), configured administrators (`ADMIN_IDS`), guild owners, and users with the Discord `Administrator` permission can manage inventory, edit categories, or trigger drops.
 - **Beautiful Embeds**:
-  - **Standard Drop**: Rich blue embed with email, password, username, cape status, skin links, and a 3D skin render.
+  - **Standard Drop**: Rich blue embed with email, password, username, cape status, and a 3D skin render.
   - **Premium Drop**: Luxurious golden-themed version of the same embed with exclusive badges.
+  - **Clickable Embed Links**: The embed title and author link to the account's NameMC profile.
+  - **Masked Quick Links**: Description fields link to NameMC, the 3D skin render, the cape render, and Minecraft login.
+  - **Link Buttons**: Dedicated buttons below each drop open NameMC, the 3D skin, the cape (when owned), and Minecraft login.
   - **Depleted Inventory Alert**: Warning embed detailing remaining stock.
   - **Inventory Overview & Pagination**: Stock breakdowns with interactive page navigation buttons.
 - **Automatic Minecraft Lookup**:

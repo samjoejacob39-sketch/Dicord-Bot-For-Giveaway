@@ -1,9 +1,17 @@
-import { EmbedBuilder } from "discord.js";
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+} from "discord.js";
 import {
   AccountCategory,
   AccountRecord,
   InventorySummary,
 } from "../types/accounts";
+
+const MINECRAFT_LOGIN_URL = "https://www.minecraft.net/login";
+const MC_HEADS_BASE = "https://mc-heads.net";
 
 /**
  * Format category name for human-readable display.
@@ -27,11 +35,74 @@ function renderBase(account: AccountRecord): string {
 }
 
 function comboUrl(account: AccountRecord): string {
-  return `https://mc-heads.net/combo/${renderBase(account)}/right`;
+  return `${MC_HEADS_BASE}/combo/${renderBase(account)}/right`;
+}
+
+function skinRenderUrl(account: AccountRecord): string {
+  return `${MC_HEADS_BASE}/body/${renderBase(account)}/right`;
 }
 
 function nameMcUrl(account: AccountRecord): string {
   return `https://namemc.com/profile/${encodeURIComponent(account.username)}`;
+}
+
+/**
+ * Discord only makes the embed *title* and *author name* clickable.
+ * Everything else is exposed through masked links and link buttons.
+ */
+export function buildEmbedLinks(account: AccountRecord) {
+  const meta = account.profileMetadata || {};
+  const hasCape = meta.hasCape === true && !!meta.capeUrl;
+
+  return {
+    nameMc: nameMcUrl(account),
+    skin: skinRenderUrl(account),
+    cape: hasCape ? (meta.capeUrl as string) : undefined,
+    login: MINECRAFT_LOGIN_URL,
+  };
+}
+
+/**
+ * Link buttons shown under drop embeds.
+ * Link buttons are the only reliable way to add multiple clickable
+ * actions to an embed (max 5 per row).
+ */
+export function createDropActionRow(
+  account: AccountRecord
+): ActionRowBuilder<ButtonBuilder> {
+  const links = buildEmbedLinks(account);
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel("NameMC Profile")
+      .setEmoji("🧑")
+      .setStyle(ButtonStyle.Link)
+      .setURL(links.nameMc),
+    new ButtonBuilder()
+      .setLabel("3D Skin")
+      .setEmoji("🎨")
+      .setStyle(ButtonStyle.Link)
+      .setURL(links.skin)
+  );
+
+  if (links.cape) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setLabel("Cape")
+        .setEmoji("🧥")
+        .setStyle(ButtonStyle.Link)
+        .setURL(links.cape)
+    );
+  }
+
+  row.addComponents(
+    new ButtonBuilder()
+      .setLabel("Minecraft Login")
+      .setEmoji("🔑")
+      .setStyle(ButtonStyle.Link)
+      .setURL(links.login)
+  );
+
+  return row;
 }
 
 /**
@@ -69,6 +140,18 @@ function buildCoreFields(account: AccountRecord) {
       name: "🧬 Model",
       value: `\`${meta.skinType || "Classic (Steve)"}\``,
       inline: true,
+    },
+    {
+      name: "🔗 Quick Links",
+      value: [
+        `[NameMC Profile](${nameMcUrl(account)})`,
+        `[3D Skin Render](${skinRenderUrl(account)})`,
+        hasCape ? `[Cape Render](${meta.capeUrl})` : null,
+        `[Minecraft Login](${MINECRAFT_LOGIN_URL})`,
+      ]
+        .filter(Boolean)
+        .join(" • "),
+      inline: false,
     },
   ];
 }
@@ -262,6 +345,7 @@ export function createInventoryDetailedEmbed(
         `• **Ref:** \`${acc.accountRef}\` • **Status:** ${statusBadge}`,
         `• **Category:** \`${formatCategoryName(acc.category)}\``,
         `• **Capes:** ${hasCape ? `[Yes](${meta.capeUrl})` : "`None`"} • **Model:** \`${meta.skinType || "Classic"}\``,
+        `• **Links:** [NameMC](https://namemc.com/profile/${encodeURIComponent(acc.username)}) • [3D Skin](${skinRenderUrl(acc)})`,
       ].join("\n"),
       inline: false,
     });

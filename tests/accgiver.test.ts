@@ -23,6 +23,7 @@ import {
   createEmptyInventoryEmbed,
   createInventoryOverviewEmbed,
   createInventoryDetailedEmbed,
+  createDropActionRow,
 } from "../src/embeds/accountEmbeds";
 
 const TEST_DB_PATH = path.join(__dirname, "temp_test_accgiver.sqlite");
@@ -512,6 +513,64 @@ describe("Account Drop System & Premium Accounts", () => {
       expect(embed.data.color).toBe(0xffd700); // Pure Gold
       expect(embed.data.title).toContain("PREMIUM DROP");
       expect(embed.data.image?.url).toContain("mc-heads.net/"); // High-res 3D combo render
+    });
+
+    it("should make the embed title and author clickable links", () => {
+      const acc = createMockAccount({ username: "LinkPlayer" });
+      const embed = createStandardDropEmbed(acc);
+
+      expect(embed.data.url).toBe("https://namemc.com/profile/LinkPlayer");
+      expect(embed.data.author?.url).toBe("https://namemc.com/profile/LinkPlayer");
+    });
+
+    it("should include masked quick links inside the embed", () => {
+      const acc = createMockAccount({ username: "LinkPlayer" });
+      const embed = createStandardDropEmbed(acc);
+
+      const quickLinks = embed.data.fields?.find(
+        (field) => field.name === "🔗 Quick Links"
+      );
+      expect(quickLinks).toBeDefined();
+      expect(quickLinks?.value).toContain("[NameMC Profile](");
+      expect(quickLinks?.value).toContain("[3D Skin Render](");
+      expect(quickLinks?.value).toContain("[Minecraft Login](");
+    });
+
+    it("should attach link buttons for NameMC, skin and login", () => {
+      const acc = createMockAccount({ username: "LinkPlayer" });
+      const row = createDropActionRow(acc);
+      const json = row.toJSON();
+      const buttons = json.components as Array<{
+        label: string;
+        style: number;
+        url?: string;
+      }>;
+
+      expect(buttons.map((button) => button.label)).toEqual([
+        "NameMC Profile",
+        "3D Skin",
+        "Minecraft Login",
+      ]);
+      expect(buttons.every((button) => button.style === 5)).toBe(true); // Link style
+      expect(buttons[0].url).toBe("https://namemc.com/profile/LinkPlayer");
+      expect(buttons[2].url).toBe("https://www.minecraft.net/login");
+    });
+
+    it("should add a cape link button when the account owns a cape", () => {
+      const acc = createMockAccount({
+        profileMetadata: {
+          hasCape: true,
+          capeUrl: "https://crafatar.com/capes/abc123",
+        },
+      });
+      const row = createDropActionRow(acc);
+      const buttons = row.toJSON().components as Array<{
+        label: string;
+        url?: string;
+      }>;
+
+      const capeButton = buttons.find((button) => button.label === "Cape");
+      expect(capeButton?.url).toBe("https://crafatar.com/capes/abc123");
     });
 
     it("should generate inventory overview embed", () => {
