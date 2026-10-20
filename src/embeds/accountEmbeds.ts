@@ -26,14 +26,6 @@ function renderBase(account: AccountRecord): string {
   );
 }
 
-function skinFrontUrl(account: AccountRecord): string {
-  return `https://mc-heads.net/body/${renderBase(account)}/left`;
-}
-
-function skinBackUrl(account: AccountRecord): string {
-  return `https://mc-heads.net/body/${renderBase(account)}/right`;
-}
-
 function comboUrl(account: AccountRecord): string {
   return `https://mc-heads.net/combo/${renderBase(account)}/right`;
 }
@@ -71,11 +63,6 @@ function buildCoreFields(account: AccountRecord) {
       value: hasCape
         ? `[Yes — view cape](${meta.capeUrl})`
         : "`None`",
-      inline: true,
-    },
-    {
-      name: "🎨 Skins",
-      value: `[Skin 1 (front)](${skinFrontUrl(account)}) • [Skin 2 (back)](${skinBackUrl(account)})`,
       inline: true,
     },
     {

@@ -438,8 +438,6 @@ describe("Account Drop System & Premium Accounts", () => {
       expect(serialized).toContain("supersecretmail@test.com");
       expect(serialized).toContain("MySecretPass!");
       expect(serialized).toContain("SecurePlayer");
-      expect(serialized).toContain("Skin 1 (front)");
-      expect(serialized).toContain("Skin 2 (back)");
       expect(serialized).toContain("crafatar.com/capes/abc123");
     });
   });
