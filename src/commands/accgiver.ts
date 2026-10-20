@@ -12,7 +12,6 @@ import {
   AccountCategory,
   AccountRecord,
   DatabaseService,
-  DistributionMode,
   ServerCheckStatus,
 } from "../types";
 import {
@@ -58,16 +57,6 @@ export const accgiverCommand = new SlashCommandBuilder()
       )
       .addStringOption((opt) =>
         opt
-          .setName("category")
-          .setDescription("Account category")
-          .setRequired(true)
-          .addChoices(
-            { name: "Not Banned (Clean)", value: AccountCategory.NOT_BANNED },
-            { name: "Other", value: AccountCategory.OTHER }
-          )
-      )
-      .addStringOption((opt) =>
-        opt
           .setName("notes")
           .setDescription("Profile metadata (capes, ranks - NO PASSWORDS)")
           .setRequired(false)
@@ -93,48 +82,25 @@ export const accgiverCommand = new SlashCommandBuilder()
       )
       .addStringOption((opt) =>
         opt
-          .setName("category")
-          .setDescription("Category (defaults to premium)")
-          .setRequired(false)
-          .addChoices(
-            { name: "Premium", value: AccountCategory.PREMIUM },
-            { name: "Not Banned (Clean)", value: AccountCategory.NOT_BANNED },
-            { name: "Other", value: AccountCategory.OTHER }
-          )
-      )
-      .addStringOption((opt) =>
-        opt
           .setName("notes")
           .setDescription("Profile metadata (capes, ranks - NO PASSWORDS)")
           .setRequired(false)
       )
   )
 
-  // 3. Drop account by category (including drop category:premium)
+  // 3. Drop account (premium or standard)
   .addSubcommand((sub) =>
     sub
       .setName("drop")
-      .setDescription("Drop an eligible account by category")
+      .setDescription("Drop a premium or standard account (consumes it from inventory)")
       .addStringOption((opt) =>
         opt
-          .setName("category")
-          .setDescription("Account category to drop")
+          .setName("type")
+          .setDescription("Which type of account to drop")
           .setRequired(true)
           .addChoices(
-            { name: "Premium Account", value: AccountCategory.PREMIUM },
-            { name: "Not Banned (Clean)", value: AccountCategory.NOT_BANNED },
-            { name: "Other", value: AccountCategory.OTHER }
-          )
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName("mode")
-          .setDescription("Distribution mode (default: one_time)")
-          .setRequired(false)
-          .addChoices(
-            { name: "One-Time Claim (Consumed)", value: "one_time" },
-            { name: "Reusable Profile Display", value: "reusable" },
-            { name: "Administrator Preview", value: "preview" }
+            { name: "⭐ Premium", value: "premium" },
+            { name: "🟢 Standard", value: "standard" }
           )
       )
   )
@@ -158,9 +124,8 @@ export const accgiverCommand = new SlashCommandBuilder()
           .setRequired(false)
           .addChoices(
             { name: "All Categories", value: "all" },
-            { name: "Premium", value: AccountCategory.PREMIUM },
-            { name: "Not Banned", value: AccountCategory.NOT_BANNED },
-            { name: "Other", value: AccountCategory.OTHER }
+            { name: "⭐ Premium", value: AccountCategory.PREMIUM },
+            { name: "🟢 Standard", value: AccountCategory.NOT_BANNED }
           )
       )
       .addBooleanOption((opt) =>
@@ -188,9 +153,8 @@ export const accgiverCommand = new SlashCommandBuilder()
           .setDescription("New category")
           .setRequired(true)
           .addChoices(
-            { name: "Premium", value: AccountCategory.PREMIUM },
-            { name: "Not Banned", value: AccountCategory.NOT_BANNED },
-            { name: "Other", value: AccountCategory.OTHER }
+            { name: "⭐ Premium", value: AccountCategory.PREMIUM },
+            { name: "🟢 Standard", value: AccountCategory.NOT_BANNED }
           )
       )
   )
@@ -261,9 +225,7 @@ async function handleAddAccount(
 ): Promise<void> {
   const username = interaction.options.getString("username", true).trim();
   const email = interaction.options.getString("email", true).trim();
-  const categoryStr =
-    interaction.options.getString("category") ||
-    (isPremium ? AccountCategory.PREMIUM : AccountCategory.OTHER);
+  const category = isPremium ? AccountCategory.PREMIUM : AccountCategory.NOT_BANNED;
   const notes = interaction.options.getString("notes")?.trim();
 
   // Security check: passwords/secrets must NEVER be accepted
@@ -275,16 +237,6 @@ async function handleAddAccount(
     });
     return;
   }
-
-  // Validate category
-  if (!isValidCategory(categoryStr)) {
-    await interaction.reply({
-      content: `❌ Invalid category: \`${categoryStr}\`.`,
-      ephemeral: true,
-    });
-    return;
-  }
-  const category = categoryStr as AccountCategory;
 
   // Check duplicate
   const existing = db.getAccountByUsername(username);
@@ -337,8 +289,8 @@ async function handleAddAccount(
     db.addAccount(newAccount);
 
     const embed = isPremium
-      ? createPremiumDropEmbed(newAccount, "preview")
-      : createStandardDropEmbed(newAccount, "preview");
+      ? createPremiumDropEmbed(newAccount)
+      : createStandardDropEmbed(newAccount);
 
     await interaction.editReply({
       content: `✅ **${isPremium ? "Premium Golden" : "Standard"} Account Registered Successfully!** Here is the preview:`,
@@ -359,24 +311,16 @@ async function handleDrop(
   interaction: ChatInputCommandInteraction,
   db: DatabaseService
 ): Promise<void> {
-  const categoryStr = interaction.options.getString("category", true);
-  const modeStr = (interaction.options.getString("mode") || "one_time") as DistributionMode;
+  const type = interaction.options.getString("type", true);
+  const isPremiumDrop = type === "premium";
+  const category = isPremiumDrop
+    ? AccountCategory.PREMIUM
+    : AccountCategory.NOT_BANNED;
 
-  // 1. Validate category
-  if (!isValidCategory(categoryStr)) {
-    await interaction.reply({
-      content: `❌ Invalid category specified: \`${categoryStr}\`.`,
-      ephemeral: true,
-    });
-    return;
-  }
-  const category = categoryStr as AccountCategory;
-
-  // 2. Find eligible account
-  const isPremiumDrop = category === AccountCategory.PREMIUM;
+  // Find eligible account
   const account = db.getAvailableAccountByCategory(category, isPremiumDrop);
 
-  // 3. Handle empty inventory gracefully
+  // Handle empty inventory gracefully
   if (!account) {
     const summary = db.getInventorySummary();
     const emptyEmbed = createEmptyInventoryEmbed(category, summary);
@@ -384,7 +328,7 @@ async function handleDrop(
     return;
   }
 
-  // 4. Record drop in database
+  // Record drop in database — always one_time so the account leaves inventory
   const dropId = generateId();
   db.recordDrop({
     id: dropId,
@@ -392,16 +336,16 @@ async function handleDrop(
     droppedBy: interaction.user.id,
     category: account.category,
     isPremium: account.isPremium,
-    mode: modeStr,
+    mode: "one_time",
     guildId: interaction.guildId || undefined,
     channelId: interaction.channelId || undefined,
     timestamp: Date.now(),
   });
 
-  // 5. Generate embed with appropriate design
+  // Generate embed with appropriate design
   const embed = account.isPremium
-    ? createPremiumDropEmbed(account, modeStr)
-    : createStandardDropEmbed(account, modeStr);
+    ? createPremiumDropEmbed(account)
+    : createStandardDropEmbed(account);
 
   await interaction.reply({ embeds: [embed] });
 }
@@ -431,6 +375,7 @@ async function handleInventory(
 
     const { accounts, total } = db.getAccounts({
       category: catFilter,
+      distributionStatus: "available",
       limit: pageSize,
       offset,
     });
@@ -486,6 +431,7 @@ async function handleInventory(
 
         const newQueryResult = db.getAccounts({
           category: catFilter,
+          distributionStatus: "available",
           limit: pageSize,
           offset: newOffset,
         });

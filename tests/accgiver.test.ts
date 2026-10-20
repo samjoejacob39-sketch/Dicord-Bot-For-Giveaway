@@ -7,7 +7,6 @@ import {
   AccountCategory,
   AccountRecord,
   AccountDistributionRecord,
-  DistributionMode,
 } from "../src/types/accounts";
 import {
   maskEmail,
@@ -34,7 +33,7 @@ function createMockAccount(overrides: Partial<AccountRecord> = {}): AccountRecor
     id: generateId(),
     username: "TestPlayer_" + Math.random().toString(36).substring(2, 7),
     email: "player123@example.com",
-    category: AccountCategory.NOT_BANNED,
+    category: isPrem ? AccountCategory.PREMIUM : AccountCategory.NOT_BANNED,
     isPremium: isPrem,
     accountRef: generateAccountRef(isPrem),
     minecraftUuid: "1cc7e61a664b45a29e287bff68128acd",
@@ -70,14 +69,10 @@ describe("Account Drop System & Premium Accounts", () => {
   });
 
   describe("1. Category Filtering", () => {
-    it("should filter and retrieve accounts by specific category", () => {
-      const accClean = createMockAccount({
-        username: "CleanUser",
+    it("should filter and retrieve accounts by standard and premium categories", () => {
+      const accStandard = createMockAccount({
+        username: "StandardUser",
         category: AccountCategory.NOT_BANNED,
-      });
-      const accOther = createMockAccount({
-        username: "OtherUser",
-        category: AccountCategory.OTHER,
       });
       const accPremium = createMockAccount({
         username: "PremiumUser",
@@ -85,19 +80,13 @@ describe("Account Drop System & Premium Accounts", () => {
         isPremium: true,
       });
 
-      db.addAccount(accClean);
-      db.addAccount(accOther);
+      db.addAccount(accStandard);
       db.addAccount(accPremium);
 
-      const foundClean = db.getAvailableAccountByCategory(AccountCategory.NOT_BANNED);
-      expect(foundClean).not.toBeNull();
-      expect(foundClean?.username).toBe("CleanUser");
-      expect(foundClean?.category).toBe(AccountCategory.NOT_BANNED);
-
-      const foundOther = db.getAvailableAccountByCategory(AccountCategory.OTHER);
-      expect(foundOther).not.toBeNull();
-      expect(foundOther?.username).toBe("OtherUser");
-      expect(foundOther?.category).toBe(AccountCategory.OTHER);
+      const foundStandard = db.getAvailableAccountByCategory(AccountCategory.NOT_BANNED);
+      expect(foundStandard).not.toBeNull();
+      expect(foundStandard?.username).toBe("StandardUser");
+      expect(foundStandard?.category).toBe(AccountCategory.NOT_BANNED);
 
       const foundPremium = db.getAvailableAccountByCategory(AccountCategory.PREMIUM, true);
       expect(foundPremium).not.toBeNull();
@@ -105,18 +94,25 @@ describe("Account Drop System & Premium Accounts", () => {
       expect(foundPremium?.category).toBe(AccountCategory.PREMIUM);
     });
 
-    it("should update account category using setcategory", () => {
+    it("should update account category and premium flag using setcategory", () => {
       const acc = createMockAccount({
         username: "SwitchCategoryUser",
         category: AccountCategory.NOT_BANNED,
       });
       db.addAccount(acc);
 
-      const updated = db.updateAccountCategory("SwitchCategoryUser", AccountCategory.OTHER);
+      const updated = db.updateAccountCategory("SwitchCategoryUser", AccountCategory.PREMIUM);
       expect(updated).toBe(true);
 
       const fetched = db.getAccountByUsername("SwitchCategoryUser");
-      expect(fetched?.category).toBe(AccountCategory.OTHER);
+      expect(fetched?.category).toBe(AccountCategory.PREMIUM);
+      expect(fetched?.isPremium).toBe(true);
+
+      // Switch back to standard
+      db.updateAccountCategory("SwitchCategoryUser", AccountCategory.NOT_BANNED);
+      const back = db.getAccountByUsername("SwitchCategoryUser");
+      expect(back?.category).toBe(AccountCategory.NOT_BANNED);
+      expect(back?.isPremium).toBe(false);
     });
   });
 
@@ -137,14 +133,14 @@ describe("Account Drop System & Premium Accounts", () => {
       db.addAccount(standardAcc);
       db.addAccount(premiumAcc);
 
-      // Dropping category premium must select the premium account
+      // Dropping premium must select the premium account
       const dropPremium = db.getAvailableAccountByCategory(AccountCategory.PREMIUM, true);
       expect(dropPremium).not.toBeNull();
       expect(dropPremium?.username).toBe("GoldUser");
       expect(dropPremium?.isPremium).toBe(true);
       expect(dropPremium?.notes).toBe("Full Access, Minecon Cape");
 
-      // Dropping standard category must select standard account
+      // Dropping standard must select standard account
       const dropStandard = db.getAvailableAccountByCategory(AccountCategory.NOT_BANNED, false);
       expect(dropStandard).not.toBeNull();
       expect(dropStandard?.username).toBe("StandardUser");
@@ -167,7 +163,7 @@ describe("Account Drop System & Premium Accounts", () => {
       expect(result).toBeNull();
     });
 
-    it("should return null once all accounts in category have been distributed in one_time mode", () => {
+    it("should return null once an account has been dropped (consumed)", () => {
       const acc = createMockAccount({
         username: "SingleAccount",
         category: AccountCategory.NOT_BANNED,
@@ -194,12 +190,12 @@ describe("Account Drop System & Premium Accounts", () => {
       expect(afterDrop).toBeNull();
     });
 
-    it("should render empty inventory embed with remaining category stock info", () => {
+    it("should render empty inventory embed with remaining stock info", () => {
       const summary = db.getInventorySummary();
       const embed = createEmptyInventoryEmbed(AccountCategory.NOT_BANNED, summary);
 
       expect(embed.data.title).toContain("Inventory Depleted");
-      expect(embed.data.description).toContain("Not Banned (Clean)");
+      expect(embed.data.description).toContain("Standard (Clean)");
     });
   });
 
@@ -288,6 +284,13 @@ describe("Account Drop System & Premium Accounts", () => {
       const updatedAcc = db.getAccountById(acc.id);
       expect(updatedAcc?.distributionStatus).toBe("distributed");
 
+      // Dropped account no longer appears in the available inventory
+      const available = db.getAccounts({
+        distributionStatus: "available",
+        limit: 10,
+      });
+      expect(available.accounts.find((a) => a.id === acc.id)).toBeUndefined();
+
       const history = db.getDistributionHistory({ accountId: acc.id });
       expect(history.length).toBe(1);
       expect(history[0].id).toBe(dropId);
@@ -314,10 +317,6 @@ describe("Account Drop System & Premium Accounts", () => {
 
       const updatedAcc = db.getAccountById(acc.id);
       expect(updatedAcc?.distributionStatus).toBe("available");
-
-      // Can be retrieved again
-      const available = db.getAvailableAccountByCategory(AccountCategory.NOT_BANNED);
-      expect(available?.id).toBe(acc.id);
     });
 
     it("should record preview mode without consuming the account", () => {
@@ -349,7 +348,6 @@ describe("Account Drop System & Premium Accounts", () => {
       expect(failedCheck.status).toBe("unknown");
       expect(failedCheck.verificationLevel).toBe("unknown");
 
-      // Even if raw status said 'unbanned' but verification was unknown / failed
       const inconclusive = createServerCheckRecord(
         "test-server",
         "unbanned",
@@ -426,7 +424,7 @@ describe("Account Drop System & Premium Accounts", () => {
         isPremium: true,
       });
 
-      const embed = createPremiumDropEmbed(acc, "one_time");
+      const embed = createPremiumDropEmbed(acc);
       const serialized = JSON.stringify(embed.toJSON());
 
       expect(serialized).not.toContain("supersecretmail@test.com");
@@ -436,32 +434,45 @@ describe("Account Drop System & Premium Accounts", () => {
   });
 
   describe("9. Inventory Summary & Pagination", () => {
-    it("should accurately count standard, premium, and category distributions", () => {
+    it("should accurately count standard and premium accounts", () => {
       db.addAccount(createMockAccount({ isPremium: false, category: AccountCategory.NOT_BANNED }));
-      db.addAccount(createMockAccount({ isPremium: false, category: AccountCategory.OTHER }));
+      db.addAccount(createMockAccount({ isPremium: false, category: AccountCategory.NOT_BANNED }));
       db.addAccount(createMockAccount({ isPremium: true, category: AccountCategory.PREMIUM }));
 
       const summary = db.getInventorySummary();
       expect(summary.totalStandard).toBe(2);
       expect(summary.totalPremium).toBe(1);
-      expect(summary.byCategory[AccountCategory.NOT_BANNED]).toBe(1);
-      expect(summary.byCategory[AccountCategory.OTHER]).toBe(1);
+      expect(summary.byCategory[AccountCategory.NOT_BANNED]).toBe(2);
       expect(summary.byCategory[AccountCategory.PREMIUM]).toBe(1);
+      expect(summary.availableStandard).toBe(2);
+      expect(summary.availablePremium).toBe(1);
     });
 
-    it("should paginate accounts accurately", () => {
+    it("should paginate available accounts accurately", () => {
       for (let i = 1; i <= 12; i++) {
         db.addAccount(createMockAccount({ username: `Player_${i.toString().padStart(2, "0")}` }));
       }
 
-      const page1 = db.getAccounts({ limit: 5, offset: 0 });
+      const page1 = db.getAccounts({
+        distributionStatus: "available",
+        limit: 5,
+        offset: 0,
+      });
       expect(page1.total).toBe(12);
       expect(page1.accounts.length).toBe(5);
 
-      const page2 = db.getAccounts({ limit: 5, offset: 5 });
+      const page2 = db.getAccounts({
+        distributionStatus: "available",
+        limit: 5,
+        offset: 5,
+      });
       expect(page2.accounts.length).toBe(5);
 
-      const page3 = db.getAccounts({ limit: 5, offset: 10 });
+      const page3 = db.getAccounts({
+        distributionStatus: "available",
+        limit: 5,
+        offset: 10,
+      });
       expect(page3.accounts.length).toBe(2);
     });
 
@@ -478,7 +489,7 @@ describe("Account Drop System & Premium Accounts", () => {
   describe("10. Embed Designs", () => {
     it("should generate dark embed for standard drops", () => {
       const acc = createMockAccount({ isPremium: false });
-      const embed = createStandardDropEmbed(acc, "one_time");
+      const embed = createStandardDropEmbed(acc);
 
       expect(embed.data.color).toBe(0x2c2f33); // Dark theme
       expect(embed.data.title).toContain("Account Dropped");
@@ -487,7 +498,7 @@ describe("Account Drop System & Premium Accounts", () => {
 
     it("should generate gold-themed embed for premium drops", () => {
       const acc = createMockAccount({ isPremium: true });
-      const embed = createPremiumDropEmbed(acc, "one_time");
+      const embed = createPremiumDropEmbed(acc);
 
       expect(embed.data.color).toBe(0xffd700); // Pure Gold
       expect(embed.data.title).toContain("PREMIUM GOLDEN DROP");

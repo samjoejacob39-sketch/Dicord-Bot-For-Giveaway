@@ -13,6 +13,11 @@ async function deployCommands() {
 
     const commands = [antispamCommand.toJSON(), accgiverCommand.toJSON()];
 
+    // Remove stale/legacy commands that may have been registered globally.
+    console.log("Clearing old global commands...");
+    await rest.put(Routes.applicationCommands(clientId), { body: [] });
+    console.log("Global commands cleared.");
+
     let data;
     if (guildId) {
       console.log(`Deploying to guild ${guildId} (instant)...`);

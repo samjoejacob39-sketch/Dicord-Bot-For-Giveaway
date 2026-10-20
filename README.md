@@ -7,20 +7,18 @@ A production-quality Discord Bot built with **Node.js**, **TypeScript**, **Disco
 ## 🚀 Features Overview
 
 ### 1. Account Drop System + Premium Accounts (`/accgiver`)
-- **Account Categories**:
-  - `not_banned` — Clean accounts with no known bans
-  - `other` — Miscellaneous / general accounts
+- **Account Types**:
+  - `standard` (`not_banned`) — Clean Minecraft accounts
   - `premium` — High-tier premium Minecraft accounts
-- **Configurable Distribution Modes**:
-  - `one_time` — Account is marked as distributed and will never be dropped again (consumed).
-  - `reusable` — Displays account profile while remaining eligible for future drops.
-  - `preview` — Administrator-only preview mode that does not consume stock.
+- **Drop & Consume**:
+  - Every `/accgiver drop` removes the account from the available inventory permanently.
+  - Dropped accounts are recorded in distribution history for auditing.
 - **Role & Owner Authorization**:
   - Only the bot owner (`BOT_OWNER_ID`), configured administrators (`ADMIN_IDS`), guild owners, and users with the Discord `Administrator` permission can manage inventory, edit categories, or trigger drops.
 - **Beautiful Embeds**:
   - **Standard Drop**: Clean dark embed with inline account info, access, and profile fields, plus a 3D Minecraft body render.
   - **Premium Drop**: Luxurious golden-themed embed with exclusive badges, premium metadata, and full-profile render.
-  - **Depleted Inventory Alert**: Warning embed detailing remaining stock across categories.
+  - **Depleted Inventory Alert**: Warning embed detailing remaining stock.
   - **Inventory Overview & Pagination**: Stock breakdowns with interactive page navigation buttons.
 - **Privacy & Security**:
   - Email addresses are strictly masked (e.g. `an***96@outlook.com`).
@@ -41,11 +39,11 @@ A production-quality Discord Bot built with **Node.js**, **TypeScript**, **Disco
 
 | Subcommand | Syntax | Description |
 |---|---|---|
-| `addacc` | `/accgiver addacc username:<name> email:<email> category:<cat> [notes]` | Adds a standard account to stock. Category: `not_banned` or `other`. |
-| `addaccpremium` | `/accgiver addaccpremium username:<name> email:<email> [category] [notes]` | Adds a premium account with `is_premium` flag and profile notes. Category: `premium`, `not_banned`, or `other`. |
-| `drop` | `/accgiver drop category:<cat> [mode]` | Drops an account in the given category. Use `category:premium` for premium drop. Modes: `one_time`, `reusable`, `preview`. |
-| `inventory` | `/accgiver inventory [page] [category] [detailed]` | Shows inventory summary, category counts, and paginated accounts. |
-| `setcategory` | `/accgiver setcategory username:<name> category:<cat>` | Changes an existing account's category. |
+| `addacc` | `/accgiver addacc username:<name> email:<email> [notes]` | Adds a standard account to stock. |
+| `addaccpremium` | `/accgiver addaccpremium username:<name> email:<email> [notes]` | Adds a premium account with `is_premium` flag and profile notes. |
+| `drop` | `/accgiver drop type:<premium\|standard>` | Drops an account of the chosen type and removes it from inventory. |
+| `inventory` | `/accgiver inventory [page] [category] [detailed]` | Shows available inventory summary and paginated accounts. |
+| `setcategory` | `/accgiver setcategory username:<name> category:<cat>` | Changes an account between premium and standard. |
 | `delete` | `/accgiver delete username:<name>` | Permanently removes an account from inventory. |
 
 ### `/antispam` — Moderation Configuration
@@ -69,7 +67,7 @@ The SQLite database (`./data/antispam.sqlite` by default) persists the following
 - `id` (TEXT PRIMARY KEY) — UUID v4
 - `username` (TEXT NOT NULL COLLATE NOCASE) — Minecraft username (unique)
 - `email` (TEXT NOT NULL) — Stored securely for admin retrieval; masked in embeds
-- `category` (TEXT NOT NULL) — `not_banned`, `other`, `premium`
+- `category` (TEXT NOT NULL) — `not_banned`, `premium`
 - `is_premium` (INTEGER NOT NULL DEFAULT 0) — Boolean flag (1 for premium)
 - `account_ref` (TEXT UNIQUE NOT NULL) — e.g. `REF-STD-A1B2C3D4` or `REF-PREM-XYZ123`
 - `minecraft_uuid` (TEXT) — Mojang UUID (resolved automatically)

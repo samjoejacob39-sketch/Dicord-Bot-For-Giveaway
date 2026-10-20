@@ -2,7 +2,6 @@ import { EmbedBuilder } from "discord.js";
 import {
   AccountCategory,
   AccountRecord,
-  DistributionMode,
   InventorySummary,
 } from "../types/accounts";
 import { maskEmail } from "../utils/security";
@@ -13,11 +12,9 @@ import { maskEmail } from "../utils/security";
 export function formatCategoryName(category: AccountCategory | string): string {
   switch (category) {
     case AccountCategory.NOT_BANNED:
-      return "🟢 Not Banned (Clean)";
+      return "🟢 Standard (Clean)";
     case AccountCategory.PREMIUM:
       return "⭐ Premium";
-    case AccountCategory.OTHER:
-      return "📦 Other";
     default:
       return String(category);
   }
@@ -27,10 +24,7 @@ export function formatCategoryName(category: AccountCategory | string): string {
  * Standard Account Drop Embed.
  * Clean, modern dark design with well-organized inline fields.
  */
-export function createStandardDropEmbed(
-  account: AccountRecord,
-  mode: DistributionMode
-): EmbedBuilder {
+export function createStandardDropEmbed(account: AccountRecord): EmbedBuilder {
   const avatarUrl =
     account.avatarUrl || `https://mc-heads.net/avatar/${encodeURIComponent(account.username)}/128`;
   const bodyUrl = `https://mc-heads.net/combo/${encodeURIComponent(account.username)}/right`;
@@ -73,7 +67,7 @@ export function createStandardDropEmbed(
       }
     )
     .setFooter({
-      text: `Mode: ${mode.toUpperCase()} • Ref: ${account.accountRef} • Category: ${formatCategoryName(account.category)}`,
+      text: `Ref: ${account.accountRef} • Category: ${formatCategoryName(account.category)}`,
       iconURL: avatarUrl,
     })
     .setTimestamp();
@@ -85,10 +79,7 @@ export function createStandardDropEmbed(
  * Premium Account Drop Embed.
  * Luxurious golden theme with prestigious badges and a bigger profile section.
  */
-export function createPremiumDropEmbed(
-  account: AccountRecord,
-  mode: DistributionMode
-): EmbedBuilder {
+export function createPremiumDropEmbed(account: AccountRecord): EmbedBuilder {
   const avatarUrl =
     account.avatarUrl || `https://mc-heads.net/avatar/${encodeURIComponent(account.username)}/128`;
   const bodyUrl = `https://mc-heads.net/combo/${encodeURIComponent(account.username)}/right`;
@@ -133,7 +124,7 @@ export function createPremiumDropEmbed(
       }
     )
     .setFooter({
-      text: `⭐ 👑 EXCLUSIVE GOLDEN DROP • Ref: ${account.accountRef} • Mode: ${mode.toUpperCase()}`,
+      text: `⭐ 👑 EXCLUSIVE GOLDEN DROP • Ref: ${account.accountRef}`,
       iconURL: avatarUrl,
     })
     .setTimestamp();
@@ -162,10 +153,8 @@ export function createEmptyInventoryEmbed(
     .addFields({
       name: "📊 Current Available Stock",
       value: [
-        `• 🟢 **Not Banned:** \`${summary.byCategory[AccountCategory.NOT_BANNED] ?? 0}\``,
-        `• 📦 **Other:** \`${summary.byCategory[AccountCategory.OTHER] ?? 0}\``,
+        `• 🟢 **Standard:** \`${summary.availableStandard}\` available`,
         `• ⭐ **Premium:** \`${summary.availablePremium}\` available`,
-        `• 📦 **Standard:** \`${summary.availableStandard}\` available`,
       ].join("\n"),
     })
     .setFooter({
@@ -205,8 +194,7 @@ export function createInventoryOverviewEmbed(summary: InventorySummary): EmbedBu
       {
         name: "🏷️ Count by Category",
         value: [
-          `• 🟢 **Not Banned:** \`${summary.byCategory[AccountCategory.NOT_BANNED] ?? 0}\``,
-          `• 📦 **Other:** \`${summary.byCategory[AccountCategory.OTHER] ?? 0}\``,
+          `• 🟢 **Standard:** \`${summary.byCategory[AccountCategory.NOT_BANNED] ?? 0}\``,
           `• ⭐ **Premium:** \`${summary.byCategory[AccountCategory.PREMIUM] ?? 0}\``,
         ].join("\n"),
         inline: false,

@@ -159,6 +159,14 @@ export class SQLiteService implements DatabaseService {
       this.db.run("ALTER TABLE accounts ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'");
     } catch {}
 
+    // Migrate legacy categories that were removed from the system
+    try {
+      this.db.run(
+        "UPDATE accounts SET category = 'not_banned', is_premium = 0 WHERE category IN ('other', 'donut_banned', 'hypixel_banned')"
+      );
+      this.db.run("UPDATE accounts SET is_premium = 1 WHERE category = 'premium'");
+    } catch {}
+
     this.db.run(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_username ON accounts(username COLLATE NOCASE)
     `);
@@ -467,9 +475,10 @@ export class SQLiteService implements DatabaseService {
     if (!existing) return false;
 
     const now = Date.now();
+    const isPremium = category === AccountCategory.PREMIUM ? 1 : 0;
     this.db.run(
-      "UPDATE accounts SET category = ?, updated_at = ? WHERE id = ?",
-      [category, now, existing.id]
+      "UPDATE accounts SET category = ?, is_premium = ?, updated_at = ? WHERE id = ?",
+      [category, isPremium, now, existing.id]
     );
     this.save();
     return true;
@@ -569,7 +578,6 @@ export class SQLiteService implements DatabaseService {
       totalPremium: 0,
       byCategory: {
         [AccountCategory.NOT_BANNED]: 0,
-        [AccountCategory.OTHER]: 0,
         [AccountCategory.PREMIUM]: 0,
       },
       availableStandard: 0,

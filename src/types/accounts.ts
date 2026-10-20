@@ -1,6 +1,5 @@
 export enum AccountCategory {
   NOT_BANNED = "not_banned",
-  OTHER = "other",
   PREMIUM = "premium",
 }
 
