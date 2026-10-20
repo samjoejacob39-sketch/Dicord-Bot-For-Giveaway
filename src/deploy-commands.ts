@@ -1,5 +1,4 @@
 import { REST, Routes } from "discord.js";
-import { antispamCommand } from "./commands/antispam";
 import { accgiverCommand } from "./commands/accgiver";
 import { config } from "./config";
 
@@ -11,7 +10,7 @@ async function deployCommands() {
   try {
     console.log("Deploying slash commands...");
 
-    const commands = [antispamCommand.toJSON(), accgiverCommand.toJSON()];
+    const commands = [accgiverCommand.toJSON()];
 
     // Remove stale/legacy commands that may have been registered globally.
     console.log("Clearing old global commands...");

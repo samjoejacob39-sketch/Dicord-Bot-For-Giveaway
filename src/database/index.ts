@@ -3,12 +3,6 @@ import path from "path";
 import fs from "fs";
 import {
   DatabaseService,
-  GuildSettings,
-  UserModerationRecord,
-  ModerationEvent,
-  UserState,
-  SpamCategory,
-  ModerationAction,
   AccountRecord,
   AccountCategory,
   AccountDistributionRecord,
@@ -18,7 +12,6 @@ import {
   AccountDistributionStatus,
   DistributionMode,
 } from "../types";
-import { getDefaultGuildSettings } from "../config";
 
 function rowToAccount(row: any): AccountRecord {
   let serverStatuses: ServerCheckStatus[] = [];
@@ -94,48 +87,7 @@ export class SQLiteService implements DatabaseService {
     this.db.run("PRAGMA journal_mode = WAL");
     this.db.run("PRAGMA busy_timeout = 5000");
 
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS guilds (
-        guild_id TEXT PRIMARY KEY,
-        settings TEXT NOT NULL
-      )
-    `);
-
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS users (
-        user_id TEXT NOT NULL,
-        guild_id TEXT NOT NULL,
-        warnings INTEGER DEFAULT 0,
-        timeouts INTEGER DEFAULT 0,
-        spam_incidents INTEGER DEFAULT 0,
-        last_violation INTEGER,
-        last_warning INTEGER,
-        last_timeout INTEGER,
-        violation_severity INTEGER DEFAULT 0,
-        total_spam_score INTEGER DEFAULT 0,
-        state TEXT DEFAULT 'normal',
-        PRIMARY KEY (user_id, guild_id)
-      )
-    `);
-
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS incidents (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        guild_id TEXT NOT NULL,
-        channel_id TEXT NOT NULL,
-        action TEXT NOT NULL,
-        spam_score INTEGER NOT NULL,
-        category TEXT NOT NULL,
-        reasons TEXT NOT NULL,
-        ai_used INTEGER DEFAULT 0,
-        ai_confidence REAL,
-        ai_classification TEXT,
-        timestamp INTEGER NOT NULL
-      )
-    `);
-
-    // Schema update: accounts table
+    // Accounts table
     this.db.run(`
       CREATE TABLE IF NOT EXISTS accounts (
         id TEXT PRIMARY KEY,
@@ -217,152 +169,6 @@ export class SQLiteService implements DatabaseService {
     const data = this.db.export();
     const buffer = Buffer.from(data);
     fs.writeFileSync(this.dbPath, buffer);
-  }
-
-  getGuildSettings(guildId: string): GuildSettings {
-    const stmt = this.db.prepare("SELECT settings FROM guilds WHERE guild_id = ?");
-    stmt.bind([guildId]);
-
-    if (stmt.step()) {
-      const row = stmt.getAsObject();
-      stmt.free();
-      try {
-        const parsed = JSON.parse(row.settings as string);
-        return { ...getDefaultGuildSettings(guildId), ...parsed };
-      } catch {
-        return getDefaultGuildSettings(guildId);
-      }
-    }
-    stmt.free();
-    return getDefaultGuildSettings(guildId);
-  }
-
-  updateGuildSettings(guildId: string, settings: Partial<GuildSettings>): void {
-    const existing = this.getGuildSettings(guildId);
-    const merged = { ...existing, ...settings, guildId };
-    this.db.run("INSERT OR REPLACE INTO guilds (guild_id, settings) VALUES (?, ?)", [
-      guildId,
-      JSON.stringify(merged),
-    ]);
-    this.save();
-  }
-
-  getUserRecord(userId: string, guildId: string): UserModerationRecord {
-    const stmt = this.db.prepare(
-      "SELECT * FROM users WHERE user_id = ? AND guild_id = ?"
-    );
-    stmt.bind([userId, guildId]);
-
-    if (stmt.step()) {
-      const row = stmt.getAsObject();
-      stmt.free();
-      return {
-        userId: row.user_id as string,
-        guildId: row.guild_id as string,
-        warnings: row.warnings as number,
-        timeouts: row.timeouts as number,
-        spamIncidents: row.spam_incidents as number,
-        lastViolation: row.last_violation as number | null,
-        lastWarning: row.last_warning as number | null,
-        lastTimeout: row.last_timeout as number | null,
-        violationSeverity: row.violation_severity as number,
-        totalSpamScore: row.total_spam_score as number,
-        state: (row.state as string) as UserState,
-      };
-    }
-    stmt.free();
-
-    return {
-      userId,
-      guildId,
-      warnings: 0,
-      timeouts: 0,
-      spamIncidents: 0,
-      lastViolation: null,
-      lastWarning: null,
-      lastTimeout: null,
-      violationSeverity: 0,
-      totalSpamScore: 0,
-      state: UserState.NORMAL,
-    };
-  }
-
-  updateUserRecord(userId: string, guildId: string, record: Partial<UserModerationRecord>): void {
-    const existing = this.getUserRecord(userId, guildId);
-    const merged = { ...existing, ...record, userId, guildId };
-
-    this.db.run(
-      `INSERT OR REPLACE INTO users
-      (user_id, guild_id, warnings, timeouts, spam_incidents, last_violation, last_warning, last_timeout, violation_severity, total_spam_score, state)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        merged.userId,
-        merged.guildId,
-        merged.warnings,
-        merged.timeouts,
-        merged.spamIncidents,
-        merged.lastViolation,
-        merged.lastWarning,
-        merged.lastTimeout,
-        merged.violationSeverity,
-        merged.totalSpamScore,
-        merged.state,
-      ]
-    );
-    this.save();
-  }
-
-  addIncident(event: ModerationEvent): void {
-    this.db.run(
-      `INSERT INTO incidents
-      (id, user_id, guild_id, channel_id, action, spam_score, category, reasons, ai_used, ai_confidence, ai_classification, timestamp)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        event.id,
-        event.userId,
-        event.guildId,
-        event.channelId,
-        event.action,
-        event.spamScore,
-        event.category,
-        JSON.stringify(event.reasons),
-        event.aiUsed ? 1 : 0,
-        event.aiConfidence,
-        event.aiClassification ? JSON.stringify(event.aiClassification) : null,
-        event.timestamp,
-      ]
-    );
-    this.save();
-  }
-
-  getIncidents(guildId: string, limit: number = 50): ModerationEvent[] {
-    const stmt = this.db.prepare(
-      "SELECT * FROM incidents WHERE guild_id = ? ORDER BY timestamp DESC LIMIT ?"
-    );
-    stmt.bind([guildId, limit]);
-
-    const results: ModerationEvent[] = [];
-    while (stmt.step()) {
-      const row = stmt.getAsObject();
-      results.push({
-        id: row.id as string,
-        userId: row.user_id as string,
-        guildId: row.guild_id as string,
-        channelId: row.channel_id as string,
-        action: row.action as ModerationAction,
-        spamScore: row.spam_score as number,
-        category: row.category as SpamCategory,
-        reasons: JSON.parse(row.reasons as string),
-        aiUsed: row.ai_used === 1,
-        aiConfidence: row.ai_confidence as number | null,
-        aiClassification: row.ai_classification
-          ? JSON.parse(row.ai_classification as string)
-          : null,
-        timestamp: row.timestamp as number,
-      });
-    }
-    stmt.free();
-    return results;
   }
 
   // ==========================================
