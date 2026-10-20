@@ -12,39 +12,20 @@ import { maskEmail } from "../utils/security";
  */
 export function formatCategoryName(category: AccountCategory | string): string {
   switch (category) {
-    case AccountCategory.DONUT_BANNED:
-      return "🍩 DonutSMP Banned";
-    case AccountCategory.HYPIXEL_BANNED:
-      return "⚔️ Hypixel Banned";
     case AccountCategory.NOT_BANNED:
       return "🟢 Not Banned (Clean)";
     case AccountCategory.PREMIUM:
-      return "⭐ Premium Account";
+      return "⭐ Premium";
     case AccountCategory.OTHER:
       return "📦 Other";
     default:
-      return category;
+      return String(category);
   }
-}
-
-function resolveServerStatus(serverName: string, account: AccountRecord): string {
-  const check = account.serverStatuses?.find(
-    (s) => s.server.toLowerCase() === serverName.toLowerCase()
-  );
-  if (!check) return "`Check failed`";
-
-  if (check.verificationLevel === "verified") {
-    return check.status === "banned" ? "`Banned`" : "`Clean`";
-  } else if (check.verificationLevel === "manually_reported") {
-    return check.status === "banned" ? "`Reported Banned`" : "`Reported Clean`";
-  }
-
-  return "`Check failed`";
 }
 
 /**
  * Standard Account Drop Embed.
- * Beautifully matches the custom checker hit style.
+ * Clean, modern dark design with well-organized inline fields.
  */
 export function createStandardDropEmbed(
   account: AccountRecord,
@@ -56,41 +37,41 @@ export function createStandardDropEmbed(
   const maskedEmail = maskEmail(account.email);
   const meta = account.profileMetadata || {};
 
-  const hypixelStatus = resolveServerStatus("hypixel", account);
-  const donutsmpStatus = resolveServerStatus("donutsmp", account);
-
-  const description = [
-    `**ACCOUNT INFO**`,
-    `🌀 **Email:** \`${maskedEmail}\``,
-    `🪨 **Password:** \`${account.accountRef}\``,
-    `🔥 **Name:** \`${account.username}\``,
-    `👑 **UUID:** \`${account.minecraftUuid || "1cc7e61a664b45a29e287bff68128acd"}\``,
-    `🌐 **Type:** 🟢 📶 \`${meta.gameType || "Java, Bedrock"}\``,
-    ``,
-    `**PROFILE**`,
-    `**Capes:** \`${meta.capes || "Pan"}\``,
-    `📜 **Name Changeable:** \`${meta.nameChangeable ? "True" : "False"}\``,
-    `📜 **Last Name Change:** \`${meta.lastNameChange || "3y - 03/10/2023"}\``,
-    `🔥 **Skin:** \`${meta.skinType || "Custom (Alex)"}\``,
-    `🧱 **Anarchy:** \`${meta.anarchyRecord || "No 2b2t record"}\``,
-    ``,
-    `**ACCESS**`,
-    `💌 **Email Changeable:** \`${meta.emailChangeable !== false ? "True" : "False"}\``,
-    `🪨 **Password Changeable:** \`${meta.passwordChangeable !== false ? "True" : "False"}\``,
-    ``,
-    `**HYPIXEL**`,
-    `🟢 **Ban Status:** ${hypixelStatus}`,
-    ``,
-    `**DONUTSMP**`,
-    `🌀 **Status:** ${donutsmpStatus}`,
-  ].join("\n");
-
   const embed = new EmbedBuilder()
-    .setColor(0x18181b) // Dark custom theme
-    .setTitle(`🔥 HIT — ${account.username}`)
+    .setAuthor({ name: "🎁 Account Drop System" })
+    .setColor(0x2c2f33) // Clean dark theme
+    .setTitle(`✅ Account Dropped — ${account.username}`)
     .setThumbnail(avatarUrl)
-    .setDescription(description)
-    .setImage(bodyUrl) // 3D full body render at bottom
+    .setImage(bodyUrl) // 3D full-body render at bottom
+    .addFields(
+      {
+        name: "📋 Account Info",
+        value: [
+          `**Name:** \`${account.username}\``,
+          `**Ref:** \`${account.accountRef}\``,
+          `**UUID:** \`${account.minecraftUuid || "Unknown"}\``,
+        ].join("\n"),
+        inline: true,
+      },
+      {
+        name: "🔐 Access",
+        value: [
+          `**Email:** \`${maskedEmail}\``,
+          `**Email Changeable:** \`${meta.emailChangeable !== false ? "Yes" : "No"}\``,
+          `**Password Changeable:** \`${meta.passwordChangeable !== false ? "Yes" : "No"}\``,
+        ].join("\n"),
+        inline: true,
+      },
+      {
+        name: "🎨 Profile",
+        value: [
+          `**Capes:** \`${meta.capes || "None"}\``,
+          `**Skin:** \`${meta.skinType || "Custom (Alex)"}\``,
+          `**Name Changeable:** \`${meta.nameChangeable ? "Yes" : "No"}\``,
+        ].join("\n"),
+        inline: true,
+      }
+    )
     .setFooter({
       text: `Mode: ${mode.toUpperCase()} • Ref: ${account.accountRef} • Category: ${formatCategoryName(account.category)}`,
       iconURL: avatarUrl,
@@ -102,7 +83,7 @@ export function createStandardDropEmbed(
 
 /**
  * Premium Account Drop Embed.
- * Completely luxurious, glowing Golden theme with prestigious badges.
+ * Luxurious golden theme with prestigious badges and a bigger profile section.
  */
 export function createPremiumDropEmbed(
   account: AccountRecord,
@@ -114,43 +95,43 @@ export function createPremiumDropEmbed(
   const maskedEmail = maskEmail(account.email);
   const meta = account.profileMetadata || {};
 
-  const hypixelStatus = resolveServerStatus("hypixel", account);
-  const donutsmpStatus = resolveServerStatus("donutsmp", account);
-
-  const description = [
-    `\`\`\`fix\n👑 ✨ EXCLUSIVE GOLDEN DROP — TIER-1 VIP ✨ 👑\n\`\`\``,
-    `**✨ GOLDEN ACCOUNT INFO**`,
-    `🌀 **Email:** \`${maskedEmail}\``,
-    `⚜️ **Security Key (Ref):** \`${account.accountRef}\``,
-    `👑 **Name:** \`${account.username}\``,
-    `💎 **UUID:** \`${account.minecraftUuid || "1cc7e61a664b45a29e287bff68128acd"}\``,
-    `🌐 **Type:** 🟢 📶 \`${meta.gameType || "Java, Bedrock"} [PREMIUM GOLD]\``,
-    ``,
-    `**🌟 ELITE PROFILE**`,
-    `🏆 **Capes:** \`${meta.capes || "Pan"}\``,
-    `📜 **Name Changeable:** \`${meta.nameChangeable ? "True" : "False"}\``,
-    `📜 **Last Name Change:** \`${meta.lastNameChange || "3y - 03/10/2023"}\``,
-    `👑 **Skin Model:** \`${meta.skinType || "Custom (Alex)"}\``,
-    `🧱 **Anarchy:** \`${meta.anarchyRecord || "No 2b2t record"}\``,
-    `⭐ **VIP Notes:** \`${account.notes || "Premium Verified Mojang Account"}\``,
-    ``,
-    `**⚜️ ACCESS STATUS**`,
-    `💌 **Email Changeable:** \`${meta.emailChangeable !== false ? "True" : "False"}\``,
-    `🪨 **Password Changeable:** \`${meta.passwordChangeable !== false ? "True" : "False"}\``,
-    ``,
-    `**HYPIXEL**`,
-    `🟢 **Ban Status:** ${hypixelStatus}`,
-    ``,
-    `**DONUTSMP**`,
-    `🌀 **Status:** ${donutsmpStatus}`,
-  ].join("\n");
-
   const embed = new EmbedBuilder()
+    .setAuthor({ name: "👑 Premium Golden Drop System" })
     .setColor(0xffd700) // Pure Metallic Gold
-    .setTitle(`👑 ✨ 🌟 GOLDEN HIT — ${account.username} 🌟 ✨ 👑`)
+    .setTitle(`👑 ✨ PREMIUM GOLDEN DROP — ${account.username} ✨ 👑`)
     .setThumbnail(avatarUrl)
-    .setDescription(description)
-    .setImage(bodyUrl) // Full 3D combo body render
+    .setImage(bodyUrl) // High-res 3D combo body render
+    .addFields(
+      {
+        name: "✨ Premium Account Info",
+        value: [
+          `**Name:** \`${account.username}\``,
+          `**Security Ref:** \`${account.accountRef}\``,
+          `**UUID:** \`${account.minecraftUuid || "Unknown"}\``,
+          `**VIP Notes:** \`${account.notes || "Premium Verified Mojang Account"}\``,
+        ].join("\n"),
+        inline: true,
+      },
+      {
+        name: "🔐 Access",
+        value: [
+          `**Email:** \`${maskedEmail}\``,
+          `**Email Changeable:** \`${meta.emailChangeable !== false ? "Yes" : "No"}\``,
+          `**Password Changeable:** \`${meta.passwordChangeable !== false ? "Yes" : "No"}\``,
+        ].join("\n"),
+        inline: true,
+      },
+      {
+        name: "🎨 Elite Profile",
+        value: [
+          `**Capes:** \`${meta.capes || "Pan Cape"}\``,
+          `**Skin Model:** \`${meta.skinType || "Custom (Alex)"}\``,
+          `**Name Changeable:** \`${meta.nameChangeable ? "Yes" : "No"}\``,
+          `**Last Name Change:** \`${meta.lastNameChange || "Unknown"}\``,
+        ].join("\n"),
+        inline: true,
+      }
+    )
     .setFooter({
       text: `⭐ 👑 EXCLUSIVE GOLDEN DROP • Ref: ${account.accountRef} • Mode: ${mode.toUpperCase()}`,
       iconURL: avatarUrl,
@@ -162,6 +143,7 @@ export function createPremiumDropEmbed(
 
 /**
  * Empty Inventory Embed.
+ * Shows which category is depleted and what stock remains elsewhere.
  */
 export function createEmptyInventoryEmbed(
   category: AccountCategory | string,
@@ -170,28 +152,31 @@ export function createEmptyInventoryEmbed(
   const catName = formatCategoryName(category);
 
   return new EmbedBuilder()
+    .setAuthor({ name: "🎁 Account Drop System" })
     .setColor(0xed4245)
     .setTitle("⚠️ Inventory Depleted")
     .setDescription(
       `No available accounts found for category **${catName}**.\n\n` +
-      `All accounts in this category have already been distributed or none have been loaded yet.`
+        `All accounts in this category have already been distributed or none have been loaded yet.`
     )
     .addFields({
-      name: "📊 CURRENT AVAILABLE STOCK",
+      name: "📊 Current Available Stock",
       value: [
-        `• 🟢 **Not Banned:** \`${summary.byCategory[AccountCategory.NOT_BANNED] ?? 0}\` total`,
-        `• 🍩 **DonutSMP Banned:** \`${summary.byCategory[AccountCategory.DONUT_BANNED] ?? 0}\` total`,
-        `• ⚔️ **Hypixel Banned:** \`${summary.byCategory[AccountCategory.HYPIXEL_BANNED] ?? 0}\` total`,
-        `• ⭐ **Premium Accounts:** \`${summary.availablePremium}\` available`,
-        `• 📦 **Standard Accounts:** \`${summary.availableStandard}\` available`,
+        `• 🟢 **Not Banned:** \`${summary.byCategory[AccountCategory.NOT_BANNED] ?? 0}\``,
+        `• 📦 **Other:** \`${summary.byCategory[AccountCategory.OTHER] ?? 0}\``,
+        `• ⭐ **Premium:** \`${summary.availablePremium}\` available`,
+        `• 📦 **Standard:** \`${summary.availableStandard}\` available`,
       ].join("\n"),
     })
-    .setFooter({ text: "Use /accgiver addacc or /accgiver addaccpremium to restock." })
+    .setFooter({
+      text: "Use /accgiver addacc or /accgiver addaccpremium to restock.",
+    })
     .setTimestamp();
 }
 
 /**
  * Inventory Overview Embed.
+ * High-level stock statistics with a clean breakdown.
  */
 export function createInventoryOverviewEmbed(summary: InventorySummary): EmbedBuilder {
   const totalAccounts = summary.totalStandard + summary.totalPremium;
@@ -199,49 +184,51 @@ export function createInventoryOverviewEmbed(summary: InventorySummary): EmbedBu
   const totalDistributed = summary.distributedStandard + summary.distributedPremium;
 
   return new EmbedBuilder()
+    .setAuthor({ name: "🎁 Account Drop System" })
     .setColor(0x5865f2)
     .setTitle("📊 Account Inventory Overview")
     .setDescription(
-      `Overview of registered Minecraft accounts and their live distribution status.\n` +
-      `Total Stored Accounts: **${totalAccounts}**`
+      `Live overview of registered Minecraft accounts and their distribution status.\n` +
+        `Total Stored Accounts: **${totalAccounts}**`
     )
     .addFields(
       {
-        name: "📦 OVERALL STOCK",
+        name: "📦 Overall Stock",
         value: [
-          `• **Total Standard Accounts:** \`${summary.totalStandard}\` (\`${summary.availableStandard}\` available, \`${summary.distributedStandard}\` distributed)`,
-          `• **Total Premium Accounts:** \`${summary.totalPremium}\` (\`${summary.availablePremium}\` available, \`${summary.distributedPremium}\` distributed)`,
+          `• **Total Standard:** \`${summary.totalStandard}\` (\`${summary.availableStandard}\` avail. / \`${summary.distributedStandard}\` dist.)`,
+          `• **Total Premium:** \`${summary.totalPremium}\` (\`${summary.availablePremium}\` avail. / \`${summary.distributedPremium}\` dist.)`,
           `• **Available for Drop:** \`${totalAvailable}\``,
           `• **Already Distributed:** \`${totalDistributed}\``,
         ].join("\n"),
         inline: false,
       },
       {
-        name: "🏷️ COUNT BY CATEGORY",
+        name: "🏷️ Count by Category",
         value: [
           `• 🟢 **Not Banned:** \`${summary.byCategory[AccountCategory.NOT_BANNED] ?? 0}\``,
-          `• ⚔️ **Hypixel Banned:** \`${summary.byCategory[AccountCategory.HYPIXEL_BANNED] ?? 0}\``,
-          `• 🍩 **DonutSMP Banned:** \`${summary.byCategory[AccountCategory.DONUT_BANNED] ?? 0}\``,
-          `• ⭐ **Premium:** \`${summary.byCategory[AccountCategory.PREMIUM] ?? 0}\``,
           `• 📦 **Other:** \`${summary.byCategory[AccountCategory.OTHER] ?? 0}\``,
+          `• ⭐ **Premium:** \`${summary.byCategory[AccountCategory.PREMIUM] ?? 0}\``,
         ].join("\n"),
         inline: false,
       },
       {
-        name: "🛡️ SERVER VERIFICATION INTEGRITY",
+        name: "🛡️ Server Verification Integrity",
         value: [
           `• **Unknown / Failed Check Accounts:** \`${summary.unknownServerStatusCount}\``,
-          `*Note: Accounts with failed checks are never marked as clean.*`,
+          `*Accounts with failed checks are never marked as clean.*`,
         ].join("\n"),
         inline: false,
       }
     )
-    .setFooter({ text: "Use /accgiver inventory detailed:True to view individual accounts" })
+    .setFooter({
+      text: "Use /accgiver inventory detailed:true to view individual accounts.",
+    })
     .setTimestamp();
 }
 
 /**
  * Detailed Inventory Page Embed.
+ * Paginated list of individual accounts.
  */
 export function createInventoryDetailedEmbed(
   accounts: AccountRecord[],
@@ -250,9 +237,16 @@ export function createInventoryDetailedEmbed(
   totalItems: number
 ): EmbedBuilder {
   const embed = new EmbedBuilder()
+    .setAuthor({ name: "🎁 Account Drop System" })
     .setColor(0x5865f2)
-    .setTitle(`📋 Account Inventory — Page ${page} of ${Math.max(1, totalPages)}`)
-    .setDescription(`Showing accounts ${accounts.length > 0 ? (page - 1) * 5 + 1 : 0}-${(page - 1) * 5 + accounts.length} of ${totalItems} registered.`);
+    .setTitle(
+      `📋 Account Inventory — Page ${page} of ${Math.max(1, totalPages)}`
+    )
+    .setDescription(
+      `Showing accounts ${
+        accounts.length > 0 ? (page - 1) * 5 + 1 : 0
+      }-${(page - 1) * 5 + accounts.length} of ${totalItems} registered.`
+    );
 
   if (accounts.length === 0) {
     embed.addFields({
@@ -264,24 +258,9 @@ export function createInventoryDetailedEmbed(
 
   for (const acc of accounts) {
     const tierBadge = acc.isPremium ? "⭐ PREMIUM" : "📦 STANDARD";
-    const statusBadge = acc.distributionStatus === "available" ? "🟢 Available" : "🔴 Distributed";
+    const statusBadge =
+      acc.distributionStatus === "available" ? "🟢 Available" : "🔴 Distributed";
     const masked = maskEmail(acc.email);
-
-    let serverSummary = "❓ Pending";
-    if (acc.serverStatuses && acc.serverStatuses.length > 0) {
-      serverSummary = acc.serverStatuses
-        .map((s) => {
-          const sName = s.server.toUpperCase().slice(0, 3);
-          const sState =
-            s.verificationLevel === "verified"
-              ? s.status === "banned" ? "BANNED" : "CLEAN"
-              : s.verificationLevel === "manually_reported"
-              ? `REPORTED(${s.status})`
-              : "UNKNOWN";
-          return `${sName}:${sState}`;
-        })
-        .join(" | ");
-    }
 
     embed.addFields({
       name: `${acc.username} [${tierBadge}]`,
@@ -289,13 +268,14 @@ export function createInventoryDetailedEmbed(
         `• **Ref:** \`${acc.accountRef}\` • **Status:** ${statusBadge}`,
         `• **Category:** \`${formatCategoryName(acc.category)}\``,
         `• **Email:** \`${masked}\``,
-        `• **Server Status:** \`${serverSummary}\``,
       ].join("\n"),
       inline: false,
     });
   }
 
-  embed.setFooter({ text: `Page ${page}/${Math.max(1, totalPages)} • Total: ${totalItems} accounts` });
+  embed.setFooter({
+    text: `Page ${page}/${Math.max(1, totalPages)} • Total: ${totalItems} accounts`,
+  });
   embed.setTimestamp();
   return embed;
 }

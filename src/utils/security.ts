@@ -83,7 +83,7 @@ export function containsDisallowedSecrets(value?: string | null): boolean {
  * GUARANTEE: Never mark an account as unbanned just because a server check failed.
  */
 export function createServerCheckRecord(
-  server: "hypixel" | "donutsmp" | string,
+  server: string,
   rawStatus: string,
   rawVerification?: string,
   details?: string,
@@ -134,12 +134,13 @@ export function createServerCheckRecord(
  */
 export function formatServerStatusesForEmbed(statuses: ServerCheckStatus[]): string {
   if (!statuses || statuses.length === 0) {
-    return "❓ **Hypixel**: `Unknown (Pending check)`\n❓ **DonutSMP**: `Unknown (Pending check)`";
+    return "❓ No server checks recorded yet (status: Unknown)";
   }
 
   return statuses
     .map((s) => {
-      const serverName = s.server.charAt(0).toUpperCase() + s.server.slice(1);
+      const serverName =
+        s.server.charAt(0).toUpperCase() + s.server.slice(1);
       let badge = "❓";
       let statusText = "Unknown";
 

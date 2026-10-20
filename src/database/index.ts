@@ -568,8 +568,6 @@ export class SQLiteService implements DatabaseService {
       totalStandard: 0,
       totalPremium: 0,
       byCategory: {
-        [AccountCategory.DONUT_BANNED]: 0,
-        [AccountCategory.HYPIXEL_BANNED]: 0,
         [AccountCategory.NOT_BANNED]: 0,
         [AccountCategory.OTHER]: 0,
         [AccountCategory.PREMIUM]: 0,

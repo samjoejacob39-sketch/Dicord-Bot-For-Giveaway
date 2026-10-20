@@ -13,8 +13,6 @@ export interface FullMinecraftProfile {
   emailChangeable: boolean;
   passwordChangeable: boolean;
   gameType: string;
-  hypixelStatus: string;
-  donutsmpStatus: string;
 }
 
 export function formatUuid(uuid: string): string {
@@ -47,8 +45,6 @@ export async function resolveMinecraftProfile(
     emailChangeable: true,
     passwordChangeable: true,
     gameType: "Java, Bedrock",
-    hypixelStatus: "Check failed",
-    donutsmpStatus: "Check failed",
   };
 
   // 1. Fetch from PlayerDB API (UUID, Casing, Textures, Model)
@@ -127,12 +123,6 @@ export async function resolveMinecraftProfile(
   } catch {
     profile.anarchyRecord = "No 2b2t record";
   }
-
-  // 3. Hypixel Ban Status: Public checker status
-  profile.hypixelStatus = "Check failed";
-
-  // 4. DonutSMP Status: Public checker status
-  profile.donutsmpStatus = "Check failed";
 
   return profile;
 }

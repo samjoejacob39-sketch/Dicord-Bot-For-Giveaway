@@ -1,6 +1,4 @@
 export enum AccountCategory {
-  DONUT_BANNED = "donut_banned",
-  HYPIXEL_BANNED = "hypixel_banned",
   NOT_BANNED = "not_banned",
   OTHER = "other",
   PREMIUM = "premium",
@@ -12,7 +10,7 @@ export type DistributionMode = "one_time" | "reusable" | "preview";
 export type AccountDistributionStatus = "available" | "distributed";
 
 export interface ServerCheckStatus {
-  server: "hypixel" | "donutsmp" | string;
+  server: string;
   status: BanState;
   verificationLevel: VerificationLevel;
   lastChecked: number;

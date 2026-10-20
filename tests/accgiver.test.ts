@@ -41,10 +41,7 @@ function createMockAccount(overrides: Partial<AccountRecord> = {}): AccountRecor
     avatarUrl: "https://mc-heads.net/avatar/TestPlayer/128",
     notes: isPrem ? "Rank MVP+, Pan Cape" : undefined,
     distributionStatus: "available",
-    serverStatuses: [
-      createServerCheckRecord("hypixel", "clean", "verified"),
-      createServerCheckRecord("donutsmp", "clean", "verified"),
-    ],
+    serverStatuses: [],
     addedBy: "admin-123",
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -74,14 +71,6 @@ describe("Account Drop System & Premium Accounts", () => {
 
   describe("1. Category Filtering", () => {
     it("should filter and retrieve accounts by specific category", () => {
-      const accDonut = createMockAccount({
-        username: "DonutBannedUser",
-        category: AccountCategory.DONUT_BANNED,
-      });
-      const accHypixel = createMockAccount({
-        username: "HypixelBannedUser",
-        category: AccountCategory.HYPIXEL_BANNED,
-      });
       const accClean = createMockAccount({
         username: "CleanUser",
         category: AccountCategory.NOT_BANNED,
@@ -90,21 +79,15 @@ describe("Account Drop System & Premium Accounts", () => {
         username: "OtherUser",
         category: AccountCategory.OTHER,
       });
+      const accPremium = createMockAccount({
+        username: "PremiumUser",
+        category: AccountCategory.PREMIUM,
+        isPremium: true,
+      });
 
-      db.addAccount(accDonut);
-      db.addAccount(accHypixel);
       db.addAccount(accClean);
       db.addAccount(accOther);
-
-      const foundDonut = db.getAvailableAccountByCategory(AccountCategory.DONUT_BANNED);
-      expect(foundDonut).not.toBeNull();
-      expect(foundDonut?.username).toBe("DonutBannedUser");
-      expect(foundDonut?.category).toBe(AccountCategory.DONUT_BANNED);
-
-      const foundHypixel = db.getAvailableAccountByCategory(AccountCategory.HYPIXEL_BANNED);
-      expect(foundHypixel).not.toBeNull();
-      expect(foundHypixel?.username).toBe("HypixelBannedUser");
-      expect(foundHypixel?.category).toBe(AccountCategory.HYPIXEL_BANNED);
+      db.addAccount(accPremium);
 
       const foundClean = db.getAvailableAccountByCategory(AccountCategory.NOT_BANNED);
       expect(foundClean).not.toBeNull();
@@ -115,6 +98,11 @@ describe("Account Drop System & Premium Accounts", () => {
       expect(foundOther).not.toBeNull();
       expect(foundOther?.username).toBe("OtherUser");
       expect(foundOther?.category).toBe(AccountCategory.OTHER);
+
+      const foundPremium = db.getAvailableAccountByCategory(AccountCategory.PREMIUM, true);
+      expect(foundPremium).not.toBeNull();
+      expect(foundPremium?.username).toBe("PremiumUser");
+      expect(foundPremium?.category).toBe(AccountCategory.PREMIUM);
     });
 
     it("should update account category using setcategory", () => {
@@ -124,11 +112,11 @@ describe("Account Drop System & Premium Accounts", () => {
       });
       db.addAccount(acc);
 
-      const updated = db.updateAccountCategory("SwitchCategoryUser", AccountCategory.DONUT_BANNED);
+      const updated = db.updateAccountCategory("SwitchCategoryUser", AccountCategory.OTHER);
       expect(updated).toBe(true);
 
       const fetched = db.getAccountByUsername("SwitchCategoryUser");
-      expect(fetched?.category).toBe(AccountCategory.DONUT_BANNED);
+      expect(fetched?.category).toBe(AccountCategory.OTHER);
     });
   });
 
@@ -175,7 +163,7 @@ describe("Account Drop System & Premium Accounts", () => {
 
   describe("3. Empty Inventory Handling", () => {
     it("should return null gracefully when no accounts exist in category", () => {
-      const result = db.getAvailableAccountByCategory(AccountCategory.HYPIXEL_BANNED);
+      const result = db.getAvailableAccountByCategory(AccountCategory.NOT_BANNED);
       expect(result).toBeNull();
     });
 
@@ -208,10 +196,10 @@ describe("Account Drop System & Premium Accounts", () => {
 
     it("should render empty inventory embed with remaining category stock info", () => {
       const summary = db.getInventorySummary();
-      const embed = createEmptyInventoryEmbed(AccountCategory.HYPIXEL_BANNED, summary);
+      const embed = createEmptyInventoryEmbed(AccountCategory.NOT_BANNED, summary);
 
       expect(embed.data.title).toContain("Inventory Depleted");
-      expect(embed.data.description).toContain("Hypixel Banned");
+      expect(embed.data.description).toContain("Not Banned (Clean)");
     });
   });
 
@@ -357,13 +345,13 @@ describe("Account Drop System & Premium Accounts", () => {
 
   describe("7. Server Ban Status Integrity", () => {
     it("must NEVER mark an account as unbanned when check failed", () => {
-      const failedCheck = createServerCheckRecord("hypixel", "check_failed", "unknown");
+      const failedCheck = createServerCheckRecord("test-server", "check_failed", "unknown");
       expect(failedCheck.status).toBe("unknown");
       expect(failedCheck.verificationLevel).toBe("unknown");
 
       // Even if raw status said 'unbanned' but verification was unknown / failed
       const inconclusive = createServerCheckRecord(
-        "donutsmp",
+        "test-server",
         "unbanned",
         "unknown",
         "Check failed: Timeout"
@@ -373,36 +361,39 @@ describe("Account Drop System & Premium Accounts", () => {
     });
 
     it("clearly distinguishes verified, manually reported, and unknown", () => {
-      const verifiedClean = createServerCheckRecord("hypixel", "clean", "verified");
+      const verifiedClean = createServerCheckRecord("test-server", "clean", "verified");
       expect(verifiedClean.verificationLevel).toBe("verified");
       expect(verifiedClean.status).toBe("unbanned");
 
-      const reportedBanned = createServerCheckRecord("hypixel", "banned", "manually_reported");
+      const reportedBanned = createServerCheckRecord("test-server", "banned", "manually_reported");
       expect(reportedBanned.verificationLevel).toBe("manually_reported");
       expect(reportedBanned.status).toBe("banned");
 
-      const unknownCheck = createServerCheckRecord("donutsmp", "unknown", "unknown");
+      const unknownCheck = createServerCheckRecord("test-server", "unknown", "unknown");
       expect(unknownCheck.verificationLevel).toBe("unknown");
       expect(unknownCheck.status).toBe("unknown");
 
-      const formatted = formatServerStatusesForEmbed([verifiedClean, reportedBanned, unknownCheck]);
-      expect(formatted).toContain("🟢 **Hypixel**: `Verified Clean`");
-      expect(formatted).toContain("⚠️ **Hypixel**: `Manually Reported: Banned`");
-      expect(formatted).toContain("❓ **Donutsmp**: `Unknown");
+      const formatted = formatServerStatusesForEmbed([
+        verifiedClean,
+        reportedBanned,
+        unknownCheck,
+      ]);
+      expect(formatted).toContain("🟢 **Test-server**: `Verified Clean`");
+      expect(formatted).toContain("⚠️ **Test-server**: `Manually Reported: Banned`");
+      expect(formatted).toContain("❓ **Test-server**: `Unknown");
     });
 
     it("accurately tracks unknown server-status count in inventory summary", () => {
       const acc1 = createMockAccount({
         username: "AccKnown",
         serverStatuses: [
-          createServerCheckRecord("hypixel", "clean", "verified"),
-          createServerCheckRecord("donutsmp", "clean", "verified"),
+          createServerCheckRecord("test-server", "clean", "verified"),
         ],
       });
       const acc2 = createMockAccount({
         username: "AccUnknown",
         serverStatuses: [
-          createServerCheckRecord("hypixel", "check_failed", "unknown", "Connection timeout"),
+          createServerCheckRecord("test-server", "check_failed", "unknown", "Connection timeout"),
         ],
       });
 
@@ -447,14 +438,14 @@ describe("Account Drop System & Premium Accounts", () => {
   describe("9. Inventory Summary & Pagination", () => {
     it("should accurately count standard, premium, and category distributions", () => {
       db.addAccount(createMockAccount({ isPremium: false, category: AccountCategory.NOT_BANNED }));
-      db.addAccount(createMockAccount({ isPremium: false, category: AccountCategory.DONUT_BANNED }));
+      db.addAccount(createMockAccount({ isPremium: false, category: AccountCategory.OTHER }));
       db.addAccount(createMockAccount({ isPremium: true, category: AccountCategory.PREMIUM }));
 
       const summary = db.getInventorySummary();
       expect(summary.totalStandard).toBe(2);
       expect(summary.totalPremium).toBe(1);
       expect(summary.byCategory[AccountCategory.NOT_BANNED]).toBe(1);
-      expect(summary.byCategory[AccountCategory.DONUT_BANNED]).toBe(1);
+      expect(summary.byCategory[AccountCategory.OTHER]).toBe(1);
       expect(summary.byCategory[AccountCategory.PREMIUM]).toBe(1);
     });
 
@@ -489,8 +480,8 @@ describe("Account Drop System & Premium Accounts", () => {
       const acc = createMockAccount({ isPremium: false });
       const embed = createStandardDropEmbed(acc, "one_time");
 
-      expect(embed.data.color).toBe(0x18181b); // Dark theme
-      expect(embed.data.title).toContain("HIT");
+      expect(embed.data.color).toBe(0x2c2f33); // Dark theme
+      expect(embed.data.title).toContain("Account Dropped");
       expect(embed.data.thumbnail?.url).toBe(acc.avatarUrl);
     });
 
@@ -499,7 +490,7 @@ describe("Account Drop System & Premium Accounts", () => {
       const embed = createPremiumDropEmbed(acc, "one_time");
 
       expect(embed.data.color).toBe(0xffd700); // Pure Gold
-      expect(embed.data.title).toContain("GOLDEN HIT");
+      expect(embed.data.title).toContain("PREMIUM GOLDEN DROP");
       expect(embed.data.image?.url).toContain("mc-heads.net/"); // High-res 3D combo render
     });
 

@@ -26,7 +26,6 @@ import {
 import { resolveMinecraftProfile } from "../services/minecraft";
 import {
   containsDisallowedSecrets,
-  createServerCheckRecord,
   generateAccountRef,
   generateId,
   isUserAuthorized,
@@ -63,44 +62,15 @@ export const accgiverCommand = new SlashCommandBuilder()
           .setDescription("Account category")
           .setRequired(true)
           .addChoices(
-            { name: "DonutSMP Banned", value: AccountCategory.DONUT_BANNED },
-            { name: "Hypixel Banned", value: AccountCategory.HYPIXEL_BANNED },
             { name: "Not Banned (Clean)", value: AccountCategory.NOT_BANNED },
             { name: "Other", value: AccountCategory.OTHER }
           )
       )
       .addStringOption((opt) =>
         opt
-          .setName("hypixel_status")
-          .setDescription("Hypixel server status")
+          .setName("notes")
+          .setDescription("Profile metadata (capes, ranks - NO PASSWORDS)")
           .setRequired(false)
-          .addChoices(
-            { name: "Clean / Unbanned", value: "clean" },
-            { name: "Banned", value: "banned" },
-            { name: "Unknown / Check Failed", value: "unknown" }
-          )
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName("donutsmp_status")
-          .setDescription("DonutSMP server status")
-          .setRequired(false)
-          .addChoices(
-            { name: "Clean / Unbanned", value: "clean" },
-            { name: "Banned", value: "banned" },
-            { name: "Unknown / Check Failed", value: "unknown" }
-          )
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName("verification_level")
-          .setDescription("Server check verification level")
-          .setRequired(false)
-          .addChoices(
-            { name: "Verified", value: "verified" },
-            { name: "Manually Reported", value: "manually_reported" },
-            { name: "Unknown / Check Failed", value: "unknown" }
-          )
       )
   )
 
@@ -129,8 +99,6 @@ export const accgiverCommand = new SlashCommandBuilder()
           .addChoices(
             { name: "Premium", value: AccountCategory.PREMIUM },
             { name: "Not Banned (Clean)", value: AccountCategory.NOT_BANNED },
-            { name: "DonutSMP Banned", value: AccountCategory.DONUT_BANNED },
-            { name: "Hypixel Banned", value: AccountCategory.HYPIXEL_BANNED },
             { name: "Other", value: AccountCategory.OTHER }
           )
       )
@@ -139,39 +107,6 @@ export const accgiverCommand = new SlashCommandBuilder()
           .setName("notes")
           .setDescription("Profile metadata (capes, ranks - NO PASSWORDS)")
           .setRequired(false)
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName("hypixel_status")
-          .setDescription("Hypixel server status")
-          .setRequired(false)
-          .addChoices(
-            { name: "Clean / Unbanned", value: "clean" },
-            { name: "Banned", value: "banned" },
-            { name: "Unknown / Check Failed", value: "unknown" }
-          )
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName("donutsmp_status")
-          .setDescription("DonutSMP server status")
-          .setRequired(false)
-          .addChoices(
-            { name: "Clean / Unbanned", value: "clean" },
-            { name: "Banned", value: "banned" },
-            { name: "Unknown / Check Failed", value: "unknown" }
-          )
-      )
-      .addStringOption((opt) =>
-        opt
-          .setName("verification_level")
-          .setDescription("Server check verification level")
-          .setRequired(false)
-          .addChoices(
-            { name: "Verified", value: "verified" },
-            { name: "Manually Reported", value: "manually_reported" },
-            { name: "Unknown / Check Failed", value: "unknown" }
-          )
       )
   )
 
@@ -188,8 +123,6 @@ export const accgiverCommand = new SlashCommandBuilder()
           .addChoices(
             { name: "Premium Account", value: AccountCategory.PREMIUM },
             { name: "Not Banned (Clean)", value: AccountCategory.NOT_BANNED },
-            { name: "DonutSMP Banned", value: AccountCategory.DONUT_BANNED },
-            { name: "Hypixel Banned", value: AccountCategory.HYPIXEL_BANNED },
             { name: "Other", value: AccountCategory.OTHER }
           )
       )
@@ -227,8 +160,6 @@ export const accgiverCommand = new SlashCommandBuilder()
             { name: "All Categories", value: "all" },
             { name: "Premium", value: AccountCategory.PREMIUM },
             { name: "Not Banned", value: AccountCategory.NOT_BANNED },
-            { name: "DonutSMP Banned", value: AccountCategory.DONUT_BANNED },
-            { name: "Hypixel Banned", value: AccountCategory.HYPIXEL_BANNED },
             { name: "Other", value: AccountCategory.OTHER }
           )
       )
@@ -259,8 +190,6 @@ export const accgiverCommand = new SlashCommandBuilder()
           .addChoices(
             { name: "Premium", value: AccountCategory.PREMIUM },
             { name: "Not Banned", value: AccountCategory.NOT_BANNED },
-            { name: "DonutSMP Banned", value: AccountCategory.DONUT_BANNED },
-            { name: "Hypixel Banned", value: AccountCategory.HYPIXEL_BANNED },
             { name: "Other", value: AccountCategory.OTHER }
           )
       )
@@ -374,25 +303,8 @@ async function handleAddAccount(
   const accountRef = generateAccountRef(isPremium);
   const now = Date.now();
 
-  // Server ban status: auto-detected from backend if not manually passed
-  const hypixelStatus = interaction.options.getString("hypixel_status") || profile.hypixelStatus;
-  const donutsmpStatus = interaction.options.getString("donutsmp_status") || profile.donutsmpStatus;
-  const verificationLevel = interaction.options.getString("verification_level") || "unknown";
-
-  const serverStatuses: ServerCheckStatus[] = [
-    createServerCheckRecord(
-      "hypixel",
-      hypixelStatus,
-      verificationLevel,
-      hypixelStatus === "unknown" || hypixelStatus.includes("failed") ? "Check failed / unverified" : undefined
-    ),
-    createServerCheckRecord(
-      "donutsmp",
-      donutsmpStatus,
-      verificationLevel,
-      donutsmpStatus === "unknown" || donutsmpStatus.includes("failed") ? "Check failed / unverified" : undefined
-    ),
-  ];
+  // No external server checks (Hypixel/DonutSMP removed) — start with empty statuses
+  const serverStatuses: ServerCheckStatus[] = [];
 
   const newAccount: AccountRecord = {
     id: generateId(),
